@@ -1,7 +1,37 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 type Flow = "create" | "join";
 type Screen = "home" | "setup" | "lobby";
+type Position = "north" | "south" | "east" | "west";
+
+type Player = {
+  id: string;
+  name: string;
+  position: Position;
+  ready: boolean;
+};
+
+type Room = {
+  code: string;
+  players: Player[];
+};
+
+const positions: Position[] = ["south", "north", "west", "east"];
+const roomKey = (code: string) => `shelem-room:${code}`;
+const cleanRoomCode = (value: string) =>
+  value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+
+const getInviteCode = () =>
+  cleanRoomCode(new URLSearchParams(window.location.search).get("room") ?? "");
+
+const readRoom = (code: string): Room | null => {
+  try {
+    const stored = window.localStorage.getItem(roomKey(code));
+    return stored ? (JSON.parse(stored) as Room) : null;
+  } catch {
+    return null;
+  }
+};
 
 const createRoomCode = () => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -21,16 +51,59 @@ function Logo() {
 }
 
 export function App() {
-  const [screen, setScreen] = useState<Screen>("home");
-  const [flow, setFlow] = useState<Flow>("create");
+  const inviteCode = getInviteCode();
+  const playerId = useRef(
+    window.crypto.randomUUID?.() ??
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  );
+  const roomChannel = useRef<BroadcastChannel | null>(null);
+  const [screen, setScreen] = useState<Screen>(
+    inviteCode.length === 6 ? "setup" : "home",
+  );
+  const [flow, setFlow] = useState<Flow>(
+    inviteCode.length === 6 ? "join" : "create",
+  );
   const [name, setName] = useState("");
-  const [roomInput, setRoomInput] = useState("");
+  const [roomInput, setRoomInput] = useState(inviteCode);
   const [roomCode, setRoomCode] = useState("");
+  const [room, setRoom] = useState<Room | null>(null);
   const [ready, setReady] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (screen !== "lobby" || !roomCode) return;
+
+    const syncRoom = () => {
+      const nextRoom = readRoom(roomCode);
+      if (nextRoom) setRoom(nextRoom);
+    };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === roomKey(roomCode)) syncRoom();
+    };
+
+    window.addEventListener("storage", handleStorage);
+    if ("BroadcastChannel" in window) {
+      roomChannel.current = new BroadcastChannel(roomKey(roomCode));
+      roomChannel.current.addEventListener("message", syncRoom);
+    }
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      roomChannel.current?.close();
+      roomChannel.current = null;
+    };
+  }, [roomCode, screen]);
+
+  const persistRoom = (nextRoom: Room) => {
+    window.localStorage.setItem(roomKey(nextRoom.code), JSON.stringify(nextRoom));
+    setRoom(nextRoom);
+    roomChannel.current?.postMessage(nextRoom);
+  };
 
   const begin = (nextFlow: Flow) => {
     setFlow(nextFlow);
+    setFormError("");
     setScreen("setup");
   };
 
@@ -41,9 +114,96 @@ export function App() {
 
     if (!cleanName || (flow === "join" && cleanCode.length !== 6)) return;
 
+    if (flow === "join") {
+      const existingRoom = readRoom(cleanCode);
+      if (!existingRoom) {
+        setFormError("That room does not exist. Check the code and try again.");
+        return;
+      }
+
+      const existingPlayer = existingRoom.players.find(
+        (player) => player.id === playerId.current,
+      );
+      if (!existingPlayer && existingRoom.players.length >= 4) {
+        setFormError("That table is already full.");
+        return;
+      }
+
+      const nextRoom = existingPlayer
+        ? existingRoom
+        : {
+            ...existingRoom,
+            players: [
+              ...existingRoom.players,
+              {
+                id: playerId.current,
+                name: cleanName,
+                position: positions[existingRoom.players.length],
+                ready: false,
+              },
+            ],
+          };
+
+      window.localStorage.setItem(roomKey(cleanCode), JSON.stringify(nextRoom));
+      setRoom(nextRoom);
+      setRoomCode(cleanCode);
+    } else {
+      let nextCode = createRoomCode();
+      while (readRoom(nextCode)) nextCode = createRoomCode();
+
+      const nextRoom: Room = {
+        code: nextCode,
+        players: [
+          {
+            id: playerId.current,
+            name: cleanName,
+            position: "south",
+            ready: false,
+          },
+        ],
+      };
+      window.localStorage.setItem(roomKey(nextCode), JSON.stringify(nextRoom));
+      setRoom(nextRoom);
+      setRoomCode(nextCode);
+    }
+
     setName(cleanName);
-    setRoomCode(flow === "create" ? createRoomCode() : cleanCode);
+    setFormError("");
     setScreen("lobby");
+  };
+
+  const leaveRoom = () => {
+    if (room) {
+      const remainingPlayers = room.players.filter(
+        (player) => player.id !== playerId.current,
+      );
+      if (remainingPlayers.length) {
+        persistRoom({ ...room, players: remainingPlayers });
+      } else {
+        window.localStorage.removeItem(roomKey(room.code));
+        roomChannel.current?.postMessage(null);
+      }
+    }
+
+    window.history.replaceState({}, "", window.location.pathname);
+    setRoom(null);
+    setRoomCode("");
+    setReady(false);
+    setScreen("home");
+  };
+
+  const toggleReady = () => {
+    if (!room) return;
+    const nextReady = !ready;
+    persistRoom({
+      ...room,
+      players: room.players.map((player) =>
+        player.id === playerId.current
+          ? { ...player, ready: nextReady }
+          : player,
+      ),
+    });
+    setReady(nextReady);
   };
 
   const copyInvite = async () => {
@@ -66,7 +226,7 @@ export function App() {
             </button>
             <button
               className="leave-button"
-              onClick={() => setScreen("home")}
+              onClick={leaveRoom}
               type="button"
             >
               Leave
@@ -85,10 +245,21 @@ export function App() {
             <span className="team-tag team-one">Team One</span>
             <span className="team-tag team-two">Team Two</span>
 
-            <Seat position="north" team="one" />
-            <Seat position="west" team="two" />
-            <Seat position="east" team="two" />
-            <Seat position="south" team="one" name={name} ready={ready} />
+            {positions.map((position) => {
+              const player = room?.players.find(
+                (candidate) => candidate.position === position,
+              );
+              return (
+                <Seat
+                  key={position}
+                  position={position}
+                  team={
+                    position === "north" || position === "south" ? "one" : "two"
+                  }
+                  player={player}
+                />
+              );
+            })}
 
             <div className="card-table">
               <div className="table-line" />
@@ -97,7 +268,15 @@ export function App() {
                 <span />
                 <span>ش</span>
               </div>
-              <strong>Waiting for 3 players</strong>
+              <strong>
+                {room?.players.length === 4
+                  ? "All players have joined"
+                  : `Waiting for ${4 - (room?.players.length ?? 1)} ${
+                      4 - (room?.players.length ?? 1) === 1
+                        ? "player"
+                        : "players"
+                    }`}
+              </strong>
               <small>Invite friends using code {roomCode}</small>
             </div>
           </div>
@@ -109,7 +288,7 @@ export function App() {
             </div>
             <button
               className={`ready-button ${ready ? "is-ready" : ""}`}
-              onClick={() => setReady((value) => !value)}
+              onClick={toggleReady}
               type="button"
             >
               {ready ? "Ready ✓" : "I’m ready"}
@@ -178,7 +357,11 @@ export function App() {
         <section className="setup-card">
           <button
             className="back-button"
-            onClick={() => setScreen("home")}
+            onClick={() => {
+              setFormError("");
+              window.history.replaceState({}, "", window.location.pathname);
+              setScreen("home");
+            }}
             type="button"
             aria-label="Back"
           >
@@ -200,7 +383,10 @@ export function App() {
               <input
                 autoFocus
                 maxLength={24}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  setFormError("");
+                }}
                 placeholder="How friends know you"
                 value={name}
               />
@@ -212,17 +398,22 @@ export function App() {
                 <input
                   className="room-input"
                   maxLength={6}
-                  onChange={(event) =>
+                  onChange={(event) => {
                     setRoomInput(
-                      event.target.value
-                        .toUpperCase()
-                        .replace(/[^A-Z0-9]/g, ""),
-                    )
-                  }
+                      cleanRoomCode(event.target.value),
+                    );
+                    setFormError("");
+                  }}
                   placeholder="ABC123"
                   value={roomInput}
                 />
               </label>
+            )}
+
+            {formError && (
+              <p className="form-error" role="alert">
+                {formError}
+              </p>
             )}
 
             <button
@@ -246,22 +437,22 @@ export function App() {
 function Seat({
   position,
   team,
-  name,
-  ready,
+  player,
 }: {
-  position: "north" | "south" | "east" | "west";
+  position: Position;
   team: "one" | "two";
-  name?: string;
-  ready?: boolean;
+  player?: Player;
 }) {
   return (
     <div className={`seat seat-${position}`}>
       <div className={`avatar team-${team}`}>
-        {name ? name.slice(0, 1).toUpperCase() : <UsersIcon />}
-        {ready && <span className="ready-check">✓</span>}
+        {player ? player.name.slice(0, 1).toUpperCase() : <UsersIcon />}
+        {player?.ready && <span className="ready-check">✓</span>}
       </div>
-      <strong>{name || "Open seat"}</strong>
-      <small>{name ? (ready ? "Ready" : "Not ready") : "Waiting…"}</small>
+      <strong>{player?.name || "Open seat"}</strong>
+      <small>
+        {player ? (player.ready ? "Ready" : "Not ready") : "Waiting…"}
+      </small>
     </div>
   );
 }

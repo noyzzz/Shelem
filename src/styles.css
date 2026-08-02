@@ -47,6 +47,7 @@ svg {
 
 .shell {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 100px 20px 45px;
 }
@@ -122,6 +123,7 @@ svg {
 .welcome,
 .setup-card {
   width: min(700px, 100%);
+  min-width: 0;
   text-align: center;
   position: relative;
   z-index: 1;
@@ -327,6 +329,13 @@ h1 {
   cursor: not-allowed;
   opacity: 0.42;
   transform: none;
+}
+
+.form-error {
+  margin: -6px 0 0;
+  color: #f0a99e;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 /* Lobby */
@@ -711,6 +720,14 @@ h1 {
     padding-inline: 18px;
   }
 
+  .welcome h1 {
+    font-size: 41px;
+  }
+
+  .intro {
+    font-size: 16px;
+  }
+
   .actions {
     flex-direction: column;
   }
@@ -740,8 +757,22 @@ h1 {
   }
 
   .card-table {
+    width: 58%;
     height: 42%;
+    left: 21%;
     top: 29%;
+  }
+
+  .card-table strong {
+    max-width: 82%;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  .card-table small {
+    max-width: 82%;
+    text-align: center;
+    font-size: 10px;
   }
 
   .seat-west,
