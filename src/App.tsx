@@ -29,9 +29,22 @@ type TurnContext = {
   seatLabel: string;
 };
 
-const positions: Position[] = ["south", "north", "west", "east"];
+const positionsClockwise: Position[] = ["south", "west", "north", "east"];
 const cleanRoomCode = (value: string) =>
   value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+
+const positionFromViewer = (
+  position: Position,
+  viewerPosition?: Position,
+): Position => {
+  if (!viewerPosition) return position;
+  const relativeIndex =
+    (positionsClockwise.indexOf(position) -
+      positionsClockwise.indexOf(viewerPosition) +
+      positionsClockwise.length) %
+    positionsClockwise.length;
+  return positionsClockwise[relativeIndex];
+};
 
 const getInviteCode = () => {
   const pathMatch = window.location.pathname.match(
@@ -423,7 +436,7 @@ export function App() {
           )}
 
           <div className="table-wrap">
-            {positions.map((position) => {
+            {positionsClockwise.map((position) => {
               const player = room?.players.find(
                 (candidate) => candidate.position === position,
               );
@@ -431,6 +444,10 @@ export function App() {
                 <Seat
                   key={position}
                   position={position}
+                  displayPosition={positionFromViewer(
+                    position,
+                    currentPlayer?.position,
+                  )}
                   team={
                     position === "north" || position === "south" ? "one" : "two"
                   }
@@ -452,7 +469,10 @@ export function App() {
             <div className="card-table">
               <div className="table-line" />
               {room?.match?.phase === "playing" ? (
-                <TableTrick room={room} />
+                <TableTrick
+                  room={room}
+                  viewerPosition={currentPlayer?.position}
+                />
               ) : (
                 <div className="deck" aria-hidden="true">
                   <CardBack />
@@ -950,7 +970,13 @@ function GroundPanel({
   );
 }
 
-function TableTrick({ room }: { room: Room }) {
+function TableTrick({
+  room,
+  viewerPosition,
+}: {
+  room: Room;
+  viewerPosition?: Position;
+}) {
   const play = room.match?.play;
   if (!play) return null;
   const teamTricks = room.players.reduce(
@@ -967,16 +993,17 @@ function TableTrick({ room }: { room: Room }) {
 
   return (
     <section className="table-trick" aria-label="Cards on the table">
-      {positions.map((position) => {
+      {positionsClockwise.map((position) => {
         const player = room.players.find(
           (candidate) => candidate.position === position,
         );
         const played = play.currentTrick.find(
           (candidate) => candidate.playerId === player?.id,
         );
+        const displayPosition = positionFromViewer(position, viewerPosition);
         return (
           <div
-            className={`table-card-slot slot-${position} ${
+            className={`table-card-slot slot-${displayPosition} ${
               played ? "has-card" : ""
             }`}
             key={position}
@@ -1281,12 +1308,14 @@ function TurnBanner({ room, turn }: { room: Room; turn: TurnContext }) {
 }
 
 function Seat({
+  displayPosition,
   onSelect,
   position,
   team,
   player,
   turn,
 }: {
+  displayPosition: Position;
   onSelect?: (position: Position) => void;
   position: Position;
   team: "one" | "two";
@@ -1296,7 +1325,7 @@ function Seat({
   const isYou = player?.id === gameClient.playerId;
   return (
     <div
-      className={`seat seat-${position} ${turn ? "is-active-turn" : ""} ${
+      className={`seat seat-${displayPosition} ${turn ? "is-active-turn" : ""} ${
         turn && isYou ? "is-your-turn" : ""
       }`}
     >
@@ -1313,7 +1342,7 @@ function Seat({
         </div>
       ) : (
         <button
-          aria-label={`Move to the ${position} seat`}
+          aria-label={`Move to the ${displayPosition} seat`}
           className={`avatar team-${team} is-selectable`}
           onClick={() => onSelect(position)}
           type="button"
