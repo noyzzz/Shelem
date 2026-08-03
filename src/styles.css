@@ -364,6 +364,20 @@ h1 {
   letter-spacing: 0.12em;
 }
 
+.player-identity {
+  padding: 7px 11px;
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 9px;
+  color: #789085;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.player-identity strong {
+  color: #f8f2e7;
+  font-weight: 700;
+}
+
 .code-button,
 .leave-button {
   height: 40px;
@@ -608,6 +622,28 @@ h1 {
   border: 1px solid rgb(255 255 255 / 8%);
   border-radius: 16px;
   background: rgb(255 255 255 / 3%);
+}
+
+.lobby-controls {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.bot-button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid rgb(239 201 120 / 24%);
+  border-radius: 11px;
+  color: #e7c57e;
+  background: rgb(239 201 120 / 7%);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bot-button:hover {
+  background: rgb(239 201 120 / 12%);
 }
 
 .hand-panel {
@@ -1184,6 +1220,11 @@ h1 {
     gap: 14px;
   }
 
+  .lobby-controls {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
   .hand-cards {
     grid-template-columns: repeat(6, 1fr);
   }
@@ -1247,6 +1288,12 @@ h1 {
 @media (max-width: 500px) {
   .shell {
     padding-inline: 18px;
+  }
+
+  .player-identity {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .welcome h1 {

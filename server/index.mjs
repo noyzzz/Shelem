@@ -5,6 +5,7 @@ import { calculateHandScore, cardPoints } from "./gameRules.mjs";
 
 const port = Number(process.env.PORT ?? 3001);
 const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 60_000);
+const botActionDelayMs = Number(process.env.BOT_ACTION_DELAY_MS ?? 350);
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const positions = ["south", "west", "north", "east"];
 const suits = ["clubs", "diamonds", "hearts", "spades"];
@@ -52,6 +53,7 @@ const createRoomCode = () => {
 
 const serializeRoom = (room, viewerId) => ({
   code: room.code,
+  hostPlayerId: room.hostPlayerId,
   score: room.score,
   matchWinnerTeam: room.matchWinnerTeam,
   players: [...room.players.values()].map(
@@ -129,6 +131,7 @@ const broadcastRoom = (room, requestId, targetSocket) => {
       send(player.socket, message);
     }
   }
+  scheduleBotTurn(room);
 };
 
 const createDeck = () =>
@@ -266,6 +269,55 @@ const determineTrickWinner = (trick, trump) => {
   ).playerId;
 };
 
+const completeGroundPhase = (room, playerId, discardIds, trump) => {
+  const discardIdSet = new Set(discardIds);
+  const hand = room.match.hands.get(playerId);
+  room.match.discarded = hand.filter((card) => discardIdSet.has(card.id));
+  room.match.hands.set(
+    playerId,
+    hand.filter((card) => !discardIdSet.has(card.id)),
+  );
+  room.match.trump = trump;
+  room.match.play = {
+    currentTurnPlayerId: playerId,
+    currentTrick: [],
+    completedTricks: [],
+    lastTrickWinnerId: null,
+  };
+  room.match.phase = "playing";
+};
+
+const playCardForPlayer = (room, playerId, card) => {
+  const play = room.match.play;
+  const hand = room.match.hands.get(playerId);
+  room.match.hands.set(
+    playerId,
+    hand.filter((candidate) => candidate.id !== card.id),
+  );
+  play.currentTrick.push({ playerId, card });
+
+  if (play.currentTrick.length === 4) {
+    const winnerId = determineTrickWinner(
+      play.currentTrick,
+      room.match.trump,
+    );
+    play.completedTricks.push({
+      number: play.completedTricks.length + 1,
+      winnerId,
+      cards: play.currentTrick,
+    });
+    play.currentTrick = [];
+    play.lastTrickWinnerId = winnerId;
+    play.currentTurnPlayerId = winnerId;
+    if (play.completedTricks.length === 12) {
+      play.currentTurnPlayerId = null;
+      scoreCompletedHand(room);
+    }
+  } else {
+    play.currentTurnPlayerId = nextPlayerClockwise(room, playerId).id;
+  }
+};
+
 const scoreCompletedHand = (room) => {
   const match = room.match;
   const biddingPlayer = room.players.get(match.bidding.winnerId);
@@ -313,6 +365,130 @@ const scoreCompletedHand = (room) => {
     matchWinnerTeam: room.matchWinnerTeam,
   };
   match.phase = "hand-results";
+};
+
+const startNextHandIfReady = (room) => {
+  const allPlayersReady =
+    room.players.size === 4 &&
+    [...room.players.values()].every(
+      (candidate) =>
+        candidate.connected &&
+        room.match.nextHandReadyPlayerIds.has(candidate.id),
+    );
+  if (!allPlayersReady) return false;
+
+  const previousMatch = room.match;
+  startHand(
+    room,
+    previousMatch.handNumber + 1,
+    nextPositionClockwise(previousMatch.dealerPosition),
+  );
+  return true;
+};
+
+const chooseBotGround = (room, playerId) => {
+  const hand = room.match.hands.get(playerId);
+  const suitStrength = Object.fromEntries(
+    suits.map((suit) => [
+      suit,
+      hand
+        .filter((card) => card.suit === suit)
+        .reduce(
+          (total, card) =>
+            total + (ranks.length - ranks.indexOf(card.rank)) + cardPoints(card),
+          0,
+        ),
+    ]),
+  );
+  const trump = suits.reduce((best, suit) =>
+    suitStrength[suit] > suitStrength[best] ? suit : best,
+  );
+  const weakestFirst = [...hand].sort((left, right) => {
+    const leftTrumpPenalty = left.suit === trump ? 100 : 0;
+    const rightTrumpPenalty = right.suit === trump ? 100 : 0;
+    return (
+      leftTrumpPenalty +
+      cardPoints(left) * 10 +
+      (ranks.length - ranks.indexOf(left.rank)) -
+      (rightTrumpPenalty +
+        cardPoints(right) * 10 +
+        (ranks.length - ranks.indexOf(right.rank)))
+    );
+  });
+  return {
+    trump,
+    discardIds: weakestFirst.slice(0, 4).map((card) => card.id),
+  };
+};
+
+const chooseBotCard = (room, playerId) => {
+  const hand = room.match.hands.get(playerId);
+  const play = room.match.play;
+  const leadSuit = play.currentTrick[0]?.card.suit;
+  let legalCards = hand;
+  if (play.completedTricks.length === 0 && play.currentTrick.length === 0) {
+    legalCards = hand.filter((card) => card.suit === room.match.trump);
+  } else if (leadSuit && hand.some((card) => card.suit === leadSuit)) {
+    legalCards = hand.filter((card) => card.suit === leadSuit);
+  }
+  return [...legalCards].sort(
+    (left, right) =>
+      ranks.indexOf(right.rank) - ranks.indexOf(left.rank),
+  )[0];
+};
+
+const runBotTurn = (room) => {
+  if (!room.match || room.matchWinnerTeam) return;
+  const match = room.match;
+
+  if (match.phase === "hand-results") {
+    let changed = false;
+    for (const player of room.players.values()) {
+      if (player.isBot && !match.nextHandReadyPlayerIds.has(player.id)) {
+        match.nextHandReadyPlayerIds.add(player.id);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    startNextHandIfReady(room);
+    broadcastRoom(room);
+    return;
+  }
+
+  if (match.phase === "bidding") {
+    const player = room.players.get(match.bidding.currentTurnPlayerId);
+    if (!player?.isBot) return;
+    match.bidding.passedPlayerIds.add(player.id);
+    match.bidding.history.push({ playerId: player.id, pass: true });
+    advanceBidTurn(room, player.id);
+    broadcastRoom(room);
+    return;
+  }
+
+  if (match.phase === "ground") {
+    const player = room.players.get(match.bidding.winnerId);
+    if (!player?.isBot) return;
+    const { discardIds, trump } = chooseBotGround(room, player.id);
+    completeGroundPhase(room, player.id, discardIds, trump);
+    broadcastRoom(room);
+    return;
+  }
+
+  if (match.phase === "playing") {
+    const player = room.players.get(match.play.currentTurnPlayerId);
+    if (!player?.isBot) return;
+    const card = chooseBotCard(room, player.id);
+    playCardForPlayer(room, player.id, card);
+    broadcastRoom(room);
+  }
+};
+
+const scheduleBotTurn = (room) => {
+  clearTimeout(room.botTimer);
+  room.botTimer = setTimeout(() => {
+    room.botTimer = null;
+    runBotTurn(room);
+  }, botActionDelayMs);
 };
 
 const forfeitMatch = (room, player, reason) => {
@@ -411,6 +587,7 @@ webSocketServer.on("connection", (socket) => {
       const code = createRoomCode();
       const room = {
         code,
+        hostPlayerId: playerId,
         players: new Map(),
         score: { one: 0, two: 0 },
         matchWinnerTeam: null,
@@ -421,6 +598,7 @@ webSocketServer.on("connection", (socket) => {
         position: "south",
         ready: false,
         connected: true,
+        isBot: false,
         socket,
         disconnectTimer: null,
       });
@@ -479,6 +657,7 @@ webSocketServer.on("connection", (socket) => {
           position: positions[room.players.size],
           ready: false,
           connected: true,
+          isBot: false,
           socket,
           disconnectTimer: null,
         });
@@ -494,6 +673,54 @@ webSocketServer.on("connection", (socket) => {
     const player = room?.players.get(playerId);
     if (!room || !player || player.socket !== socket) {
       sendError(socket, requestId, "not-in-room", "Join a room first.");
+      return;
+    }
+
+    if (message.type === "fill-with-bots" || message.type === "remove-bots") {
+      if (room.hostPlayerId !== playerId) {
+        sendError(
+          socket,
+          requestId,
+          "host-only",
+          "Only the room host can manage bots.",
+        );
+        return;
+      }
+      if (room.match) {
+        sendError(
+          socket,
+          requestId,
+          "match-started",
+          "Bots can only be changed before the match starts.",
+        );
+        return;
+      }
+
+      if (message.type === "remove-bots") {
+        for (const candidate of room.players.values()) {
+          if (candidate.isBot) room.players.delete(candidate.id);
+        }
+      } else {
+        const occupiedPositions = new Set(
+          [...room.players.values()].map((candidate) => candidate.position),
+        );
+        for (const position of positions) {
+          if (occupiedPositions.has(position)) continue;
+          const botId = `bot-${room.code}-${position}`;
+          room.players.set(botId, {
+            id: botId,
+            name: `Bot ${position[0].toUpperCase()}${position.slice(1)}`,
+            position,
+            ready: true,
+            connected: true,
+            isBot: true,
+            socket: null,
+            disconnectTimer: null,
+          });
+        }
+        startMatchIfReady(room);
+      }
+      broadcastRoom(room, requestId, socket);
       return;
     }
 
@@ -627,21 +854,7 @@ webSocketServer.on("connection", (socket) => {
         return;
       }
 
-      room.match.discarded = hand.filter((card) =>
-        uniqueDiscardIds.has(card.id),
-      );
-      room.match.hands.set(
-        playerId,
-        remainingHand,
-      );
-      room.match.trump = trump;
-      room.match.play = {
-        currentTurnPlayerId: playerId,
-        currentTrick: [],
-        completedTricks: [],
-        lastTrickWinnerId: null,
-      };
-      room.match.phase = "playing";
+      completeGroundPhase(room, playerId, discardIds, trump);
       broadcastRoom(room, requestId, socket);
       return;
     }
@@ -709,32 +922,7 @@ webSocketServer.on("connection", (socket) => {
         return;
       }
 
-      room.match.hands.set(
-        playerId,
-        hand.filter((candidate) => candidate.id !== card.id),
-      );
-      play.currentTrick.push({ playerId, card });
-
-      if (play.currentTrick.length === 4) {
-        const winnerId = determineTrickWinner(
-          play.currentTrick,
-          room.match.trump,
-        );
-        play.completedTricks.push({
-          number: play.completedTricks.length + 1,
-          winnerId,
-          cards: play.currentTrick,
-        });
-        play.currentTrick = [];
-        play.lastTrickWinnerId = winnerId;
-        play.currentTurnPlayerId = winnerId;
-        if (play.completedTricks.length === 12) {
-          play.currentTurnPlayerId = null;
-          scoreCompletedHand(room);
-        }
-      } else {
-        play.currentTurnPlayerId = nextPlayerClockwise(room, playerId).id;
-      }
+      playCardForPlayer(room, playerId, card);
 
       broadcastRoom(room, requestId, socket);
       return;
@@ -766,21 +954,7 @@ webSocketServer.on("connection", (socket) => {
         room.match.nextHandReadyPlayerIds.delete(playerId);
       }
 
-      const allPlayersReady =
-        room.players.size === 4 &&
-        [...room.players.values()].every(
-          (candidate) =>
-            candidate.connected &&
-            room.match.nextHandReadyPlayerIds.has(candidate.id),
-        );
-      if (allPlayersReady) {
-        const previousMatch = room.match;
-        startHand(
-          room,
-          previousMatch.handNumber + 1,
-          nextPositionClockwise(previousMatch.dealerPosition),
-        );
-      }
+      startNextHandIfReady(room);
 
       broadcastRoom(room, requestId, socket);
       return;

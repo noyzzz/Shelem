@@ -48,6 +48,10 @@ export function App() {
   const ready =
     room?.players.find((player) => player.id === gameClient.playerId)?.ready ??
     false;
+  const currentPlayer = room?.players.find(
+    (player) => player.id === gameClient.playerId,
+  );
+  const hasBots = room?.players.some((player) => player.isBot) ?? false;
 
   useEffect(() => {
     gameClient.connect();
@@ -136,6 +140,21 @@ export function App() {
       await gameClient.setReady(!ready);
     } catch {
       // The connection indicator communicates transient server failures.
+    }
+  };
+
+  const toggleBots = async () => {
+    try {
+      if (hasBots) {
+        await gameClient.removeBots();
+      } else {
+        await gameClient.fillWithBots();
+      }
+      setActionError("");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Unable to manage bots.",
+      );
     }
   };
 
@@ -229,6 +248,9 @@ export function App() {
         <header className="lobby-header">
           <Logo />
           <div className="room-actions">
+            <span className="player-identity">
+              Playing as <strong>{currentPlayer?.name ?? name}</strong>
+            </span>
             <span className="room-label">Private room</span>
             <button className="code-button" onClick={copyInvite} type="button">
               <span>{roomCode}</span>
@@ -443,13 +465,24 @@ export function App() {
                     : "Bidding in progress"}
               </span>
             ) : (
-              <button
-                className={`ready-button ${ready ? "is-ready" : ""}`}
-                onClick={toggleReady}
-                type="button"
-              >
-                {ready ? "Ready ✓" : "I’m ready"}
-              </button>
+              <div className="lobby-controls">
+                {room?.hostPlayerId === gameClient.playerId && (
+                  <button
+                    className="bot-button"
+                    onClick={toggleBots}
+                    type="button"
+                  >
+                    {hasBots ? "Remove bots" : "Fill empty seats with bots"}
+                  </button>
+                )}
+                <button
+                  className={`ready-button ${ready ? "is-ready" : ""}`}
+                  onClick={toggleReady}
+                  type="button"
+                >
+                  {ready ? "Ready ✓" : "I’m ready"}
+                </button>
+              </div>
             )}
           </div>
         </section>
@@ -1048,7 +1081,9 @@ function Seat({
       <strong>{player?.name || "Open seat"}</strong>
       <small>
         {player
-          ? !player.connected
+          ? player.isBot
+            ? "Bot player"
+            : !player.connected
             ? "Reconnecting…"
             : player.ready
               ? "Ready"

@@ -16,6 +16,11 @@ Open `http://localhost:5173`.
 Source files are mounted into the container, so changes refresh in the browser
 without rebuilding the image.
 
+To test a complete game by yourself, create a room, choose **Fill empty seats
+with bots**, and mark yourself ready. The three server-controlled players will
+automatically bid, prepare the ground, play legal cards, and ready themselves
+for the next hand.
+
 Stop the containers:
 
 ```powershell

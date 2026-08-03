@@ -7,6 +7,7 @@ export type Player = {
   position: Position;
   ready: boolean;
   connected: boolean;
+  isBot: boolean;
 };
 
 export type Card = {
@@ -85,6 +86,7 @@ export type Match = {
 
 export type Room = {
   code: string;
+  hostPlayerId: string;
   players: Player[];
   score: Record<Team, number>;
   matchWinnerTeam: Team | null;
@@ -224,6 +226,14 @@ class GameClient {
 
   setReady(ready: boolean) {
     return this.request({ type: "set-ready", ready });
+  }
+
+  fillWithBots() {
+    return this.request({ type: "fill-with-bots" });
+  }
+
+  removeBots() {
+    return this.request({ type: "remove-bots" });
   }
 
   placeBid(amount: number) {

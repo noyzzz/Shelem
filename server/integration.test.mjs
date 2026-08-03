@@ -114,6 +114,7 @@ before(async () => {
       ...process.env,
       PORT: String(port),
       RECONNECT_GRACE_MS: "50",
+      BOT_ACTION_DELAY_MS: "1",
     },
     stdio: "ignore",
   });
@@ -156,6 +157,12 @@ test("creates, validates, synchronizes, and cleans up rooms", async () => {
   assert.equal(joined.room.players.length, 2);
   assert.equal((await hostSawJoin).room.players.length, 2);
 
+  const rejectedBotManagement = await command(guest, {
+    type: "fill-with-bots",
+    playerId: "guest",
+  });
+  assert.equal(rejectedBotManagement.code, "host-only");
+
   const hostSawReady = nextMessage(host);
   await command(guest, {
     type: "set-ready",
@@ -181,6 +188,118 @@ test("creates, validates, synchronizes, and cleans up rooms", async () => {
 
   host.close();
   stranger.close();
+});
+
+test("one human can complete a hand with three bots", async () => {
+  const host = await connect();
+  const playerId = "solo-host";
+  const created = await command(host, {
+    type: "create-room",
+    playerId,
+    name: "Solo Host",
+  });
+  assert.equal(created.room.hostPlayerId, playerId);
+
+  const filled = await command(host, {
+    type: "fill-with-bots",
+    playerId,
+  });
+  assert.equal(filled.room.players.length, 4);
+  assert.equal(
+    filled.room.players.filter((player) => player.isBot).length,
+    3,
+  );
+  assert.equal(
+    filled.room.players
+      .filter((player) => player.isBot)
+      .every((player) => player.ready && player.connected),
+    true,
+  );
+
+  const cleared = await command(host, {
+    type: "remove-bots",
+    playerId,
+  });
+  assert.equal(cleared.room.players.length, 1);
+  await command(host, { type: "fill-with-bots", playerId });
+
+  let state = await command(host, {
+    type: "set-ready",
+    playerId,
+    ready: true,
+  });
+  assert.equal(state.room.match.phase, "bidding");
+
+  while (state.room.match.phase !== "hand-results") {
+    const match = state.room.match;
+    if (
+      match.phase === "bidding" &&
+      match.bidding.currentTurnPlayerId === playerId
+    ) {
+      state = await command(host, { type: "pass-bid", playerId });
+      continue;
+    }
+
+    if (
+      match.phase === "ground" &&
+      match.bidding.winnerId === playerId
+    ) {
+      const discardIds = match.yourHand.slice(0, 4).map((card) => card.id);
+      const retainedCards = match.yourHand.filter(
+        (card) => !discardIds.includes(card.id),
+      );
+      state = await command(host, {
+        type: "complete-ground",
+        playerId,
+        discardIds,
+        trump: retainedCards[0].suit,
+      });
+      continue;
+    }
+
+    if (
+      match.phase === "playing" &&
+      match.play.currentTurnPlayerId === playerId
+    ) {
+      const leadSuit = match.play.currentTrick[0]?.card.suit;
+      const followingCards = leadSuit
+        ? match.yourHand.filter((card) => card.suit === leadSuit)
+        : [];
+      const legalCards =
+        followingCards.length > 0 ? followingCards : match.yourHand;
+      state = await command(host, {
+        type: "play-card",
+        playerId,
+        cardId: legalCards[0].id,
+      });
+      continue;
+    }
+
+    state = await nextMessage(host);
+  }
+
+  assert.equal(
+    state.room.match.result.rawPoints.one +
+      state.room.match.result.rawPoints.two,
+    165,
+  );
+  const botsReady = await waitForMessage(
+    host,
+    (message) =>
+      message.room?.match?.phase === "hand-results" &&
+      message.room.match.nextHandReadyPlayerIds.length === 3,
+  );
+  assert.equal(botsReady.room.match.play.completedTrickCount, 12);
+
+  const secondHand = await command(host, {
+    type: "set-next-hand-ready",
+    playerId,
+    ready: true,
+  });
+  assert.equal(secondHand.room.match.handNumber, 2);
+  assert.equal(secondHand.room.match.dealerPosition, "west");
+
+  host.close();
 });
 
 test("starts a four-player hand and deals private cards", async () => {
