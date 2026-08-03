@@ -70,7 +70,6 @@ services:
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env.production}
       LIVEKIT_DOMAIN: ${LIVEKIT_DOMAIN:?Set LIVEKIT_DOMAIN in .env.production}
-      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env.production}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

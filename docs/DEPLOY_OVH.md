@@ -40,7 +40,7 @@ cd ~/shelem
 
 ## 3. Create the private production environment
 
-Copy the template and edit the public names and email:
+Copy the template and edit the public names:
 
 ```bash
 cp .env.production.example .env.production
