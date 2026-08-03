@@ -1097,8 +1097,8 @@ function Hand({
   const suitOrder: Card["suit"][] = [
     "clubs",
     "diamonds",
-    "hearts",
     "spades",
+    "hearts",
   ];
   const rankOrder: Card["rank"][] = [
     "A",
@@ -1115,25 +1115,11 @@ function Hand({
     "3",
     "2",
   ];
-  const sortWithinColor = (colorCards: Card[]) =>
-    [...colorCards].sort(
-      (left, right) =>
-        suitOrder.indexOf(left.suit) - suitOrder.indexOf(right.suit) ||
-        rankOrder.indexOf(left.rank) - rankOrder.indexOf(right.rank),
-    );
-  const redCards = sortWithinColor(
-    cards.filter((card) => card.suit === "diamonds" || card.suit === "hearts"),
+  const sortedCards = [...cards].sort(
+    (left, right) =>
+      suitOrder.indexOf(left.suit) - suitOrder.indexOf(right.suit) ||
+      rankOrder.indexOf(left.rank) - rankOrder.indexOf(right.rank),
   );
-  const blackCards = sortWithinColor(
-    cards.filter((card) => card.suit === "clubs" || card.suit === "spades"),
-  );
-  const firstColor = redCards.length > blackCards.length ? redCards : blackCards;
-  const secondColor = firstColor === redCards ? blackCards : redCards;
-  const sortedCards: Card[] = [];
-  secondColor.forEach((card, index) => {
-    sortedCards.push(firstColor[index], card);
-  });
-  sortedCards.push(...firstColor.slice(secondColor.length));
 
   return (
     <section className="hand-panel" aria-label="Your hand">
