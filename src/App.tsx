@@ -15,6 +15,7 @@ import {
   type Player,
   type Position,
   type Room,
+  type Team,
 } from "./gameClient";
 
 const MediaRoom = lazy(() =>
@@ -143,6 +144,9 @@ export function App() {
   const currentPlayer = room?.players.find(
     (player) => player.id === gameClient.playerId,
   );
+  const viewerTeam = currentPlayer
+    ? teamForPosition(currentPlayer.position)
+    : undefined;
   const hasBots = room?.players.some((player) => player.isBot) ?? false;
   const isGroundWinner =
     room?.match?.bidding.winnerId === gameClient.playerId;
@@ -383,7 +387,7 @@ export function App() {
         </header>
 
         <section className="lobby-content">
-          {room?.match && <MatchScoreboard score={room.score} />}
+          {room?.match && <MatchScoreboard room={room} />}
           <div className="lobby-title">
             <p className="eyebrow">
               {room?.match ? `Hand ${room.match.handNumber}` : "Your private table"}
@@ -411,6 +415,7 @@ export function App() {
                     room.match.forfeit?.winningTeam ??
                       room.matchWinnerTeam ??
                       "one",
+                    viewerTeam,
                   )} wins by forfeit.`
                 : room?.match?.phase === "ground-reveal"
                 ? isGroundWinner
@@ -503,11 +508,11 @@ export function App() {
                 <strong>
                 {room?.match
                   ? room.match.phase === "match-complete"
-                    ? `${teamLabel(room.matchWinnerTeam ?? "one")} wins`
+                    ? `${teamLabel(room.matchWinnerTeam ?? "one", viewerTeam)} wins`
                     : room.match.phase === "hand-results"
-                    ? `${teamLabel("one")} ${
+                    ? `${teamLabel("one", viewerTeam)} ${
                         room.match.result?.rawPoints.one
-                      } · ${teamLabel("two")} ${
+                      } · ${teamLabel("two", viewerTeam)} ${
                         room.match.result?.rawPoints.two
                       }`
                     : room.match.phase === "playing"
@@ -998,6 +1003,9 @@ function TableTrick({
 }) {
   const play = room.match?.play;
   if (!play) return null;
+  const viewerTeam = viewerPosition
+    ? teamForPosition(viewerPosition)
+    : undefined;
   const teamTricks = room.players.reduce(
     (totals, player) => {
       const team =
@@ -1042,8 +1050,8 @@ function TableTrick({
         );
       })}
       <div className="table-team-tricks">
-        <span>{teamLabel("one")} {teamTricks.one}</span>
-        <span>{teamLabel("two")} {teamTricks.two}</span>
+        <span>{teamLabel("one", viewerTeam)} {teamTricks.one}</span>
+        <span>{teamLabel("two", viewerTeam)} {teamTricks.two}</span>
       </div>
     </section>
   );
@@ -1062,12 +1070,16 @@ function ResultPanel({
   if (!result) return null;
   const readyPlayerIds = room.match?.nextHandReadyPlayerIds ?? [];
   const isReady = readyPlayerIds.includes(gameClient.playerId);
+  const viewerTeam = getViewerTeam(room);
+  const displayedTeams: Team[] = viewerTeam
+    ? [viewerTeam, otherTeam(viewerTeam)]
+    : ["one", "two"];
 
   const outcome = result.shelem
-    ? `${teamLabel(result.biddingTeam)} won Shelem`
+    ? `${teamLabel(result.biddingTeam, viewerTeam)} won Shelem`
     : result.madeBid
-      ? `${teamLabel(result.biddingTeam)} made the ${result.bid} bid`
-      : `${teamLabel(result.biddingTeam)} missed the ${result.bid} bid`;
+      ? `${teamLabel(result.biddingTeam, viewerTeam)} made the ${result.bid} bid`
+      : `${teamLabel(result.biddingTeam, viewerTeam)} missed the ${result.bid} bid`;
 
   return (
     <section className="result-panel" aria-label="Hand result">
@@ -1075,10 +1087,12 @@ function ResultPanel({
         <span>Hand {room.match?.handNumber} result</span>
         <strong>{outcome}</strong>
         {room.matchWinnerTeam && (
-          <small>{teamLabel(room.matchWinnerTeam)} wins the match</small>
+          <small>
+            {teamLabel(room.matchWinnerTeam, viewerTeam)} wins the match
+          </small>
         )}
       </div>
-      {(["one", "two"] as const).map((team) => (
+      {displayedTeams.map((team) => (
         <article
           className={`result-team ${
             result.biddingTeam === team ? "is-bidding-team" : ""
@@ -1086,7 +1100,7 @@ function ResultPanel({
           key={team}
         >
           <div>
-            <span>{teamLabel(team)}</span>
+            <span>{teamLabel(team, viewerTeam)}</span>
             {result.biddingTeam === team && <small>Bidding team</small>}
           </div>
           <dl>
@@ -1129,11 +1143,14 @@ function ResultPanel({
 function ForfeitPanel({ room }: { room: Room }) {
   const forfeit = room.match?.forfeit;
   if (!forfeit) return null;
+  const viewerTeam = getViewerTeam(room);
 
   return (
     <section className="forfeit-panel" aria-label="Match result">
       <span>Match result</span>
-      <strong>{teamLabel(forfeit.winningTeam)} wins by forfeit</strong>
+      <strong>
+        {teamLabel(forfeit.winningTeam, viewerTeam)} wins by forfeit
+      </strong>
       <p>
         {forfeit.losingPlayerName}{" "}
         {forfeit.reason === "left"
@@ -1141,30 +1158,74 @@ function ForfeitPanel({ room }: { room: Room }) {
           : "did not reconnect before the grace period ended."}
       </p>
       <div>
-        Final score: {teamLabel("one")} {room.score.one} ·{" "}
-        {teamLabel("two")} {room.score.two}
+        Final score: {teamLabel("one", viewerTeam)} {room.score.one} ·{" "}
+        {teamLabel("two", viewerTeam)} {room.score.two}
       </div>
     </section>
   );
 }
 
-function teamLabel(team: "one" | "two") {
-  return team === "one" ? "North–South" : "East–West";
+function teamForPosition(position: Position): Team {
+  return position === "north" || position === "south" ? "one" : "two";
 }
 
-function MatchScoreboard({ score }: { score: Room["score"] }) {
+function otherTeam(team: Team): Team {
+  return team === "one" ? "two" : "one";
+}
+
+function getViewerTeam(room: Room): Team | undefined {
+  const viewer = room.players.find(
+    (player) => player.id === gameClient.playerId,
+  );
+  return viewer ? teamForPosition(viewer.position) : undefined;
+}
+
+function teamLabel(team: Team, viewerTeam?: Team) {
+  if (!viewerTeam) return team === "one" ? "Team one" : "Team two";
+  return team === viewerTeam ? "Your team" : "Opponents";
+}
+
+function teamPlayerNames(room: Room, team: Team) {
+  return room.players
+    .filter((player) => teamForPosition(player.position) === team)
+    .map((player) => player.name)
+    .join(" & ");
+}
+
+function MatchScoreboard({ room }: { room: Room }) {
+  const viewerTeam = getViewerTeam(room) ?? "one";
+  const opponentTeam = otherTeam(viewerTeam);
+
   return (
     <section className="match-scoreboard" aria-label="Current match score">
-      <div className="match-score-team team-one-score">
-        <span>{teamLabel("one")}</span>
-        <strong>{score.one}</strong>
-      </div>
+      <ScoreboardTeam room={room} team={viewerTeam} viewerTeam={viewerTeam} />
       <small>First to 1,000</small>
-      <div className="match-score-team team-two-score">
-        <span>{teamLabel("two")}</span>
-        <strong>{score.two}</strong>
-      </div>
+      <ScoreboardTeam
+        room={room}
+        team={opponentTeam}
+        viewerTeam={viewerTeam}
+      />
     </section>
+  );
+}
+
+function ScoreboardTeam({
+  room,
+  team,
+  viewerTeam,
+}: {
+  room: Room;
+  team: Team;
+  viewerTeam: Team;
+}) {
+  return (
+    <div className={`match-score-team team-${team}-score`}>
+      <div>
+        <span>{teamLabel(team, viewerTeam)}</span>
+        <small>{teamPlayerNames(room, team)}</small>
+      </div>
+      <strong>{room.score[team]}</strong>
+    </div>
   );
 }
 
