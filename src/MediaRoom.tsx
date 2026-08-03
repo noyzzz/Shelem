@@ -62,7 +62,9 @@ export function MediaRoom({ players }: MediaRoomProps) {
     try {
       const credentials = await gameClient.requestMediaToken();
       const room = new Room({
-        adaptiveStream: true,
+        // Four small video feeds are inexpensive enough to keep subscribed.
+        // This avoids mobile browsers pausing a tile before it becomes visible.
+        adaptiveStream: false,
         // A Shelem room has at most four publishers. Keeping every camera
         // active makes local previews predictable while players join.
         dynacast: false,
@@ -258,7 +260,9 @@ function ParticipantVideo({
   return (
     <div className="media-participant">
       <div className={`media-video ${cameraOn ? "has-video" : ""}`}>
-        <video autoPlay muted={participant.isLocal} playsInline ref={videoRef} />
+        {/* Audio tracks are attached separately, so every video element can
+            stay muted and satisfy mobile autoplay policies. */}
+        <video autoPlay muted playsInline ref={videoRef} />
         {!cameraOn && <span>{initials(name)}</span>}
       </div>
       <div>
