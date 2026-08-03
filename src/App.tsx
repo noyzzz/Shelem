@@ -383,6 +383,7 @@ export function App() {
         </header>
 
         <section className="lobby-content">
+          {room?.match && <MatchScoreboard score={room.score} />}
           <div className="lobby-title">
             <p className="eyebrow">
               {room?.match ? `Hand ${room.match.handNumber}` : "Your private table"}
@@ -1149,6 +1150,22 @@ function ForfeitPanel({ room }: { room: Room }) {
 
 function teamLabel(team: "one" | "two") {
   return team === "one" ? "North–South" : "East–West";
+}
+
+function MatchScoreboard({ score }: { score: Room["score"] }) {
+  return (
+    <section className="match-scoreboard" aria-label="Current match score">
+      <div className="match-score-team team-one-score">
+        <span>{teamLabel("one")}</span>
+        <strong>{score.one}</strong>
+      </div>
+      <small>First to 1,000</small>
+      <div className="match-score-team team-two-score">
+        <span>{teamLabel("two")}</span>
+        <strong>{score.two}</strong>
+      </div>
+    </section>
+  );
 }
 
 function formatScoreDelta(score: number) {
