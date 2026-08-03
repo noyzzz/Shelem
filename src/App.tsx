@@ -1129,12 +1129,16 @@ function Hand({
         <strong>Your hand</strong>
         <span>{cards.length} cards</span>
       </div>
-      <div className="hand-cards">
+      <div
+        className={`hand-cards ${cards.length > 12 ? "is-large-hand" : ""}`}
+      >
         {sortedCards.map((card, index) => {
           const distanceFromCenter = index - (sortedCards.length - 1) / 2;
+          const fanAngleStep = sortedCards.length > 12 ? 1.55 : 2.25;
+          const fanDropStep = sortedCards.length > 12 ? 1.45 : 2.1;
           const fanStyle = {
-            "--fan-angle": `${distanceFromCenter * 2.25}deg`,
-            "--fan-drop": `${Math.abs(distanceFromCenter) * 2.1}px`,
+            "--fan-angle": `${distanceFromCenter * fanAngleStep}deg`,
+            "--fan-drop": `${Math.abs(distanceFromCenter) * fanDropStep}px`,
             zIndex: index + 1,
           } as CSSProperties;
           return (

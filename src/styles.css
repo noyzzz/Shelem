@@ -1922,6 +1922,11 @@ h1 {
     margin-left: -24px;
   }
 
+  .hand-cards.is-large-hand .playing-card {
+    width: 44px;
+    flex-basis: 44px;
+  }
+
   .ground-reveal-cards {
     width: 100%;
     justify-content: center;
@@ -2055,5 +2060,10 @@ h1 {
   .playing-card {
     width: 42px;
     flex-basis: 42px;
+  }
+
+  .hand-cards.is-large-hand .playing-card {
+    width: 38px;
+    flex-basis: 38px;
   }
 }
