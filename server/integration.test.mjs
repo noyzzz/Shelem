@@ -117,6 +117,9 @@ before(async () => {
       BOT_ACTION_DELAY_MS: "1",
       GROUND_REVEAL_MS: "5",
       TRICK_DISPLAY_MS: "5",
+      LIVEKIT_API_KEY: "devkey",
+      LIVEKIT_API_SECRET: "secret",
+      LIVEKIT_URL: "ws://127.0.0.1:7880",
     },
     stdio: "ignore",
   });
@@ -138,6 +141,26 @@ test("creates, validates, synchronizes, and cleans up rooms", async () => {
     name: "Host",
   });
   assert.equal(created.type, "room-state");
+
+  const media = await command(host, {
+    type: "request-media-token",
+    playerId: "host",
+  });
+  assert.equal(media.type, "media-token");
+  assert.equal(media.url, "ws://127.0.0.1:7880");
+  const mediaClaims = JSON.parse(
+    Buffer.from(media.token.split(".")[1], "base64url").toString(),
+  );
+  assert.equal(mediaClaims.sub, "host");
+  assert.equal(mediaClaims.video.room, `shelem-${created.room.code}`);
+  assert.equal(mediaClaims.video.roomJoin, true);
+
+  const unauthorizedMedia = await command(stranger, {
+    type: "request-media-token",
+    playerId: "stranger",
+  });
+  assert.equal(unauthorizedMedia.type, "error");
+  assert.equal(unauthorizedMedia.code, "not-in-room");
   assert.equal(created.room.players.length, 1);
 
   const rejected = await command(stranger, {

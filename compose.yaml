@@ -26,6 +26,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}
     expose:
       - "3001"
     healthcheck:
@@ -33,6 +36,23 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - shelem
+
+  livekit:
+    image: livekit/livekit-server:v1.13.1
+    command:
+      - --dev
+      - --bind
+      - 0.0.0.0
+      - --node-ip
+      - 127.0.0.1
+      - --udp-port
+      - "7882"
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
     networks:
       - shelem
 

@@ -21,6 +21,11 @@ with bots**, and mark yourself ready. The three server-controlled players will
 automatically bid, prepare the ground, play legal cards, and ready themselves
 for the next hand.
 
+Voice and video are served by the local LiveKit container at
+`ws://localhost:7880`. Inside a game room, choose **Join conversation**, then
+turn on the microphone or camera you want to share. Both devices are off until
+you explicitly enable them. Bots do not join media.
+
 Stop the containers:
 
 ```powershell
@@ -46,11 +51,25 @@ The Compose project currently runs:
 
 - `web`: React browser client
 - `game-server`: authoritative WebSocket room and presence state
+- `livekit`: self-hosted WebRTC voice and video
 
-Future gameplay infrastructure will include:
+Future gameplay infrastructure may include:
 
 - `postgres`: accounts, matches, and game history
 - `redis`: room presence and short-lived reconnect state
-- `livekit`: WebRTC video and voice
 
 All services will communicate through the private `shelem` Docker network.
+
+## Production voice and video
+
+The development key (`devkey` / `secret`) is only for a local machine. For a
+public server, copy `.env.example` to `.env` and replace the LiveKit key,
+secret, and public URL. `LIVEKIT_URL` must be a trusted TLS endpoint such as
+`wss://livekit.example.com`; do not expose the API secret to the browser.
+
+LiveKit's production deployment also needs a domain and valid TLS certificate.
+Open TCP 7881 and the UDP media ports configured on the server. The local
+Compose setup uses UDP 7882; production can instead use LiveKit's recommended
+UDP range and embedded TURN configuration. For best media performance on a
+Linux server, deploy LiveKit with host networking using its production
+configuration generator rather than the local `--dev` command.

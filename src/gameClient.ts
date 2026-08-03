@@ -103,6 +103,7 @@ type StatusListener = (status: ConnectionStatus) => void;
 type ServerMessage =
   | { type: "room-state"; requestId?: string; room: Room }
   | { type: "left-room"; requestId: string }
+  | { type: "media-token"; requestId: string; token: string; url: string }
   | {
       type: "error";
       requestId?: string;
@@ -112,6 +113,16 @@ type ServerMessage =
 
 type PendingRequest = {
   resolve: (room: Room | null) => void;
+  reject: (error: Error) => void;
+};
+
+export type MediaCredentials = {
+  token: string;
+  url: string;
+};
+
+type MediaPendingRequest = {
+  resolve: (credentials: MediaCredentials) => void;
   reject: (error: Error) => void;
 };
 
@@ -145,6 +156,7 @@ class GameClient {
   private roomListeners = new Set<RoomListener>();
   private statusListeners = new Set<StatusListener>();
   private pending = new Map<string, PendingRequest>();
+  private mediaPending = new Map<string, MediaPendingRequest>();
   private status: ConnectionStatus = "disconnected";
   private lastJoin = getRememberedRoom();
 
@@ -186,9 +198,18 @@ class GameClient {
       } else if (message.type === "left-room") {
         this.pending.get(message.requestId)?.resolve(null);
         this.pending.delete(message.requestId);
+      } else if (message.type === "media-token") {
+        this.mediaPending
+          .get(message.requestId)
+          ?.resolve({ token: message.token, url: message.url });
+        this.mediaPending.delete(message.requestId);
       } else if (message.type === "error" && message.requestId) {
         this.pending.get(message.requestId)?.reject(new Error(message.message));
         this.pending.delete(message.requestId);
+        this.mediaPending
+          .get(message.requestId)
+          ?.reject(new Error(message.message));
+        this.mediaPending.delete(message.requestId);
       }
     });
     this.socket.addEventListener("close", () => {
@@ -198,6 +219,10 @@ class GameClient {
         request.reject(new Error("Connection lost. Please try again."));
       }
       this.pending.clear();
+      for (const request of this.mediaPending.values()) {
+        request.reject(new Error("Connection lost. Please try again."));
+      }
+      this.mediaPending.clear();
       if (!this.manuallyStopped) {
         this.reconnectTimer = window.setTimeout(() => this.connect(), 1_000);
       }
@@ -257,6 +282,25 @@ class GameClient {
 
   setNextHandReady(ready: boolean) {
     return this.request({ type: "set-next-hand-ready", ready });
+  }
+
+  requestMediaToken() {
+    return new Promise<MediaCredentials>((resolve, reject) => {
+      if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+        reject(new Error("Connect to the game server before joining voice."));
+        return;
+      }
+
+      const requestId = window.crypto.randomUUID();
+      this.mediaPending.set(requestId, { resolve, reject });
+      this.socket.send(
+        JSON.stringify({
+          type: "request-media-token",
+          requestId,
+          playerId: this.playerId,
+        }),
+      );
+    });
   }
 
   leaveRoom() {

@@ -1,4 +1,11 @@
-import { FormEvent, useEffect, useState, type CSSProperties } from "react";
+import {
+  FormEvent,
+  lazy,
+  Suspense,
+  useEffect,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   gameClient,
   type Card,
@@ -6,6 +13,10 @@ import {
   type Position,
   type Room,
 } from "./gameClient";
+
+const MediaRoom = lazy(() =>
+  import("./MediaRoom").then(({ MediaRoom }) => ({ default: MediaRoom })),
+);
 
 type Flow = "create" | "join";
 type Screen = "home" | "setup" | "lobby";
@@ -324,6 +335,14 @@ export function App() {
 
           {room && turnContext && (
             <TurnBanner room={room} turn={turnContext} />
+          )}
+
+          {room && (
+            <Suspense
+              fallback={<div className="media-room media-room-loading">Loading conversation…</div>}
+            >
+              <MediaRoom players={room.players} />
+            </Suspense>
           )}
 
           <div className="table-wrap">

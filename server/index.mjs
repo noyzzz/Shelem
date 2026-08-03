@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { randomInt } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
+import { AccessToken } from "livekit-server-sdk";
 import { calculateHandScore, cardPoints } from "./gameRules.mjs";
 
 const port = Number(process.env.PORT ?? 3001);
@@ -8,6 +9,9 @@ const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 60_000);
 const botActionDelayMs = Number(process.env.BOT_ACTION_DELAY_MS ?? 350);
 const groundRevealMs = Number(process.env.GROUND_REVEAL_MS ?? 6_000);
 const trickDisplayMs = Number(process.env.TRICK_DISPLAY_MS ?? 5_000);
+const livekitApiKey = process.env.LIVEKIT_API_KEY;
+const livekitApiSecret = process.env.LIVEKIT_API_SECRET;
+const livekitUrl = process.env.LIVEKIT_URL;
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const positions = ["south", "west", "north", "east"];
 const suits = ["clubs", "diamonds", "hearts", "spades"];
@@ -614,7 +618,7 @@ const detachSocket = (socket, removeImmediately = false) => {
 };
 
 webSocketServer.on("connection", (socket) => {
-  socket.on("message", (data) => {
+  socket.on("message", async (data) => {
     let message;
     try {
       message = JSON.parse(data.toString());
@@ -774,6 +778,60 @@ webSocketServer.on("connection", (socket) => {
         startMatchIfReady(room);
       }
       broadcastRoom(room, requestId, socket);
+      return;
+    }
+
+    if (message.type === "request-media-token") {
+      if (!livekitApiKey || !livekitApiSecret || !livekitUrl) {
+        sendError(
+          socket,
+          requestId,
+          "media-unavailable",
+          "Voice and video are not configured on this server.",
+        );
+        return;
+      }
+      if (player.isBot) {
+        sendError(
+          socket,
+          requestId,
+          "media-unavailable",
+          "Bots cannot join voice or video.",
+        );
+        return;
+      }
+
+      try {
+        const accessToken = new AccessToken(livekitApiKey, livekitApiSecret, {
+          identity: player.id,
+          name: player.name,
+          ttl: "2h",
+          metadata: JSON.stringify({
+            roomCode: room.code,
+            position: player.position,
+          }),
+        });
+        accessToken.addGrant({
+          roomJoin: true,
+          room: `shelem-${room.code}`,
+          canPublish: true,
+          canSubscribe: true,
+        });
+        const token = await accessToken.toJwt();
+        send(socket, {
+          type: "media-token",
+          requestId,
+          token,
+          url: livekitUrl,
+        });
+      } catch {
+        sendError(
+          socket,
+          requestId,
+          "media-unavailable",
+          "Voice and video are temporarily unavailable.",
+        );
+      }
       return;
     }
 
