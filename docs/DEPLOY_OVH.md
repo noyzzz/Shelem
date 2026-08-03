@@ -14,7 +14,23 @@ Replace the example names with your real names. If the domain has an `AAAA`
 record, point it to the VPS IPv6 address or remove it until IPv6 is configured
 and verified.
 
-## 2. Copy the application to the VPS
+## 2. Allow production traffic through the VPS firewall
+
+Keep SSH open, then allow HTTPS, LiveKit TCP fallback, TURN, and the UDP media
+ranges:
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 7881/tcp
+sudo ufw allow 3478/udp
+sudo ufw allow 30000:40000/udp
+sudo ufw allow 50000:60000/udp
+sudo ufw enable
+```
+
+## 3. Copy the application to the VPS
 
 From WSL, run these commands from the repository directory:
 
@@ -38,7 +54,7 @@ tar -xzf /tmp/shelem.tar.gz -C ~/shelem
 cd ~/shelem
 ```
 
-## 3. Create the private production environment
+## 4. Create the private production environment
 
 Copy the template and edit the public names:
 
@@ -57,7 +73,7 @@ printf 'LIVEKIT_API_SECRET=%s\n' "$(openssl rand -base64 36 | tr -d '\n')"
 Put the generated values into `.env.production`. Do not publish or commit this
 file.
 
-## 4. Start the production stack
+## 5. Start the production stack
 
 ```bash
 docker compose \
