@@ -28,7 +28,7 @@ export type Card = {
 };
 
 export type Match = {
-  phase: "bidding" | "ground" | "playing";
+  phase: "bidding" | "ground" | "playing" | "hand-complete";
   handNumber: number;
   dealerPosition: Position;
   firstBidderPosition: Position;
@@ -49,6 +49,13 @@ export type Match = {
     winningBid: number | null;
     winnerId: string | null;
   };
+  play: {
+    currentTurnPlayerId: string | null;
+    currentTrick: Array<{ playerId: string; card: Card }>;
+    completedTrickCount: number;
+    lastTrickWinnerId: string | null;
+    trickWins: Record<string, number>;
+  } | null;
 };
 
 export type Room = {
@@ -202,6 +209,10 @@ class GameClient {
 
   completeGround(discardIds: string[], trump: Card["suit"]) {
     return this.request({ type: "complete-ground", discardIds, trump });
+  }
+
+  playCard(cardId: string) {
+    return this.request({ type: "play-card", cardId });
   }
 
   leaveRoom() {

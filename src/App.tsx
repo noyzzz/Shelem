@@ -186,6 +186,19 @@ export function App() {
     }
   };
 
+  const playCard = async (cardId: string) => {
+    try {
+      await gameClient.playCard(cardId);
+      setActionError("");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Unable to play that card.",
+      );
+    }
+  };
+
+  const playableCardIds = getPlayableCardIds(room);
+
   const copyInvite = async () => {
     const invite = `${window.location.origin}?room=${roomCode}`;
     await navigator.clipboard?.writeText(invite);
@@ -220,7 +233,9 @@ export function App() {
               {room?.match ? `Hand ${room.match.handNumber}` : "Your private table"}
             </p>
             <h1>
-              {room?.match?.phase === "playing"
+              {room?.match?.phase === "hand-complete"
+                ? "The hand is complete."
+                : room?.match?.phase === "playing"
                 ? "Trump is declared."
                 : room?.match?.phase === "ground"
                 ? "The bid is won."
@@ -231,6 +246,8 @@ export function App() {
             <p>
               {room?.match?.phase === "ground"
                 ? "The winning bidder will take the zamin and declare trump."
+                : room?.match?.phase === "hand-complete"
+                  ? "All twelve tricks are finished. Scoring is next."
                 : room?.match?.phase === "playing"
                   ? "The bidder will lead the first trick with a trump card."
                 : room?.match
@@ -268,8 +285,12 @@ export function App() {
               </div>
               <strong>
                 {room?.match
-                  ? room.match.phase === "playing"
-                    ? `${suitLabel(room.match.trump)} is trump`
+                  ? room.match.phase === "hand-complete"
+                    ? "All 12 tricks are complete"
+                    : room.match.phase === "playing"
+                    ? `Trick ${
+                        (room.match.play?.completedTrickCount ?? 0) + 1
+                      } of 12`
                     : room.match.phase === "ground"
                     ? `${
                         room.players.find(
@@ -287,8 +308,10 @@ export function App() {
                     }`}
               </strong>
               <small>
-                {room?.match?.phase === "playing"
-                  ? `${room.match.discardCount} bidder discards are face down`
+                {room?.match?.phase === "hand-complete"
+                  ? `${suitLabel(room.match.trump)} was trump`
+                  : room?.match?.phase === "playing"
+                  ? `${suitLabel(room.match.trump)} is trump`
                   : room?.match?.phase === "ground"
                     ? "The winning bidder now holds the four zamin cards"
                   : room?.match
@@ -301,10 +324,17 @@ export function App() {
           {room?.match && (
             <Hand
               cards={room.match.yourHand}
-              onToggle={toggleDiscard}
+              enabledIds={
+                room.match.phase === "playing" ? playableCardIds : undefined
+              }
+              onToggle={
+                room.match.phase === "playing" ? playCard : toggleDiscard
+              }
               selectable={
-                room.match.phase === "ground" &&
-                room.match.bidding.winnerId === gameClient.playerId
+                (room.match.phase === "ground" &&
+                  room.match.bidding.winnerId === gameClient.playerId) ||
+                (room.match.phase === "playing" &&
+                  room.match.play?.currentTurnPlayerId === gameClient.playerId)
               }
               selectedIds={selectedDiscardIds}
             />
@@ -329,6 +359,10 @@ export function App() {
                 trump={trump}
               />
             )}
+          {(room?.match?.phase === "playing" ||
+            room?.match?.phase === "hand-complete") && (
+            <PlayPanel actionError={actionError} room={room} />
+          )}
 
           <div className="lobby-footer">
             <div className="connection-note">
@@ -348,7 +382,12 @@ export function App() {
                     ? "Choose four discards and trump"
                     : "Waiting for the bidder"
                   : room.match.phase === "playing"
-                    ? "Ready for the first trick"
+                    ? room.match.play?.currentTurnPlayerId ===
+                      gameClient.playerId
+                      ? "Your turn to play"
+                      : "Trick in progress"
+                    : room.match.phase === "hand-complete"
+                      ? "Ready for scoring"
                     : room.match.bidding.currentTurnPlayerId ===
                       gameClient.playerId
                     ? "Your turn to bid"
@@ -641,13 +680,89 @@ function GroundPanel({
   );
 }
 
+function PlayPanel({
+  actionError,
+  room,
+}: {
+  actionError: string;
+  room: Room;
+}) {
+  const play = room.match?.play;
+  if (!play) return null;
+
+  const currentPlayer = room.players.find(
+    (player) => player.id === play.currentTurnPlayerId,
+  );
+  const lastWinner = room.players.find(
+    (player) => player.id === play.lastTrickWinnerId,
+  );
+
+  return (
+    <section className="play-panel" aria-label="Current trick">
+      <div className="trick-summary">
+        <strong>
+          {room.match?.phase === "hand-complete"
+            ? "Twelve tricks complete"
+            : `Trick ${play.completedTrickCount + 1}`}
+        </strong>
+        <span>
+          {room.match?.phase === "hand-complete"
+            ? "Ready to count the hand"
+            : `${currentPlayer?.name ?? "Next player"} to play`}
+        </span>
+        {lastWinner && (
+          <small>Last trick won by {lastWinner.name}</small>
+        )}
+      </div>
+
+      <div className="current-trick">
+        {play.currentTrick.length > 0 ? (
+          play.currentTrick.map(({ card, playerId }) => (
+            <div className={`trick-card is-${card.suit}`} key={playerId}>
+              <span>
+                {card.rank}
+                {suitSymbol(card.suit)}
+              </span>
+              <small>
+                {room.players.find((player) => player.id === playerId)?.name}
+              </small>
+            </div>
+          ))
+        ) : (
+          <span className="empty-trick">
+            {room.match?.phase === "hand-complete"
+              ? "Hand finished"
+              : "Waiting for the lead"}
+          </span>
+        )}
+      </div>
+
+      <div className="trick-score">
+        {room.players.map((player) => (
+          <span key={player.id}>
+            {player.name}: {play.trickWins[player.id] ?? 0}
+          </span>
+        ))}
+      </div>
+
+      {actionError && (
+        <p className="action-error" role="alert">
+          {actionError}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function Hand({
   cards,
+  enabledIds,
   onToggle,
   selectable = false,
   selectedIds = [],
 }: {
   cards: Card[];
+  enabledIds?: string[];
   onToggle?: (cardId: string) => void;
   selectable?: boolean;
   selectedIds?: string[];
@@ -697,7 +812,10 @@ function Hand({
             className={`playing-card is-${card.suit} ${
               selectedIds.includes(card.id) ? "is-selected" : ""
             }`}
-            disabled={!selectable}
+            disabled={
+              !selectable ||
+              (enabledIds !== undefined && !enabledIds.includes(card.id))
+            }
             key={card.id}
             aria-label={`${card.rank} of ${card.suit}`}
             onClick={() => onToggle?.(card.id)}
@@ -720,6 +838,41 @@ function suitLabel(suit: Card["suit"] | null) {
     spades: "Spades",
   };
   return suit ? labels[suit] : "No suit";
+}
+
+function suitSymbol(suit: Card["suit"]) {
+  const symbols: Record<Card["suit"], string> = {
+    clubs: "♣",
+    diamonds: "♦",
+    hearts: "♥",
+    spades: "♠",
+  };
+  return symbols[suit];
+}
+
+function getPlayableCardIds(room: Room | null) {
+  if (
+    room?.match?.phase !== "playing" ||
+    room.match.play?.currentTurnPlayerId !== gameClient.playerId
+  ) {
+    return [];
+  }
+
+  const hand = room.match.yourHand;
+  const currentTrick = room.match.play.currentTrick;
+  if (currentTrick.length === 0) {
+    return room.match.play.completedTrickCount === 0
+      ? hand
+          .filter((card) => card.suit === room.match?.trump)
+          .map((card) => card.id)
+      : hand.map((card) => card.id);
+  }
+
+  const leadSuit = currentTrick[0].card.suit;
+  const followingCards = hand.filter((card) => card.suit === leadSuit);
+  return (followingCards.length > 0 ? followingCards : hand).map(
+    (card) => card.id,
+  );
 }
 
 function Seat({

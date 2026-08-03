@@ -78,6 +78,22 @@ const serializeRoom = (room, viewerId) => ({
             winningBid: room.match.bidding.winningBid,
             winnerId: room.match.bidding.winnerId,
           },
+          play: room.match.play
+            ? {
+                currentTurnPlayerId: room.match.play.currentTurnPlayerId,
+                currentTrick: room.match.play.currentTrick,
+                completedTrickCount: room.match.play.completedTricks.length,
+                lastTrickWinnerId: room.match.play.lastTrickWinnerId,
+                trickWins: Object.fromEntries(
+                  [...room.players.keys()].map((playerId) => [
+                    playerId,
+                    room.match.play.completedTricks.filter(
+                      (trick) => trick.winnerId === playerId,
+                    ).length,
+                  ]),
+                ),
+              }
+            : null,
         },
       }
     : {}),
@@ -187,6 +203,30 @@ const advanceBidTurn = (room, currentPlayerId) => {
       return;
     }
   }
+};
+
+const nextPlayerClockwise = (room, currentPlayerId) => {
+  const currentPlayer = room.players.get(currentPlayerId);
+  const currentPositionIndex = positions.indexOf(currentPlayer.position);
+  const nextPosition =
+    positions[(currentPositionIndex + 1) % positions.length];
+  return [...room.players.values()].find(
+    (player) => player.position === nextPosition,
+  );
+};
+
+const determineTrickWinner = (trick, trump) => {
+  const leadSuit = trick[0].card.suit;
+  const trumpCards = trick.filter(({ card }) => card.suit === trump);
+  const eligibleCards =
+    trumpCards.length > 0
+      ? trumpCards
+      : trick.filter(({ card }) => card.suit === leadSuit);
+  return eligibleCards.reduce((winner, play) =>
+    ranks.indexOf(play.card.rank) < ranks.indexOf(winner.card.rank)
+      ? play
+      : winner,
+  ).playerId;
 };
 
 const sendError = (socket, requestId, code, message) => {
@@ -437,6 +477,9 @@ webSocketServer.on("connection", (socket) => {
       const uniqueDiscardIds = new Set(discardIds);
       const trump = typeof message.trump === "string" ? message.trump : "";
       const hand = room.match.hands.get(playerId);
+      const remainingHand = hand.filter(
+        (card) => !uniqueDiscardIds.has(card.id),
+      );
       if (
         discardIds.length !== 4 ||
         uniqueDiscardIds.size !== 4 ||
@@ -459,16 +502,125 @@ webSocketServer.on("connection", (socket) => {
         );
         return;
       }
+      if (!remainingHand.some((card) => card.suit === trump)) {
+        sendError(
+          socket,
+          requestId,
+          "invalid-trump",
+          "Keep at least one card in the trump suit for the opening lead.",
+        );
+        return;
+      }
 
       room.match.discarded = hand.filter((card) =>
         uniqueDiscardIds.has(card.id),
       );
       room.match.hands.set(
         playerId,
-        hand.filter((card) => !uniqueDiscardIds.has(card.id)),
+        remainingHand,
       );
       room.match.trump = trump;
+      room.match.play = {
+        currentTurnPlayerId: playerId,
+        currentTrick: [],
+        completedTricks: [],
+        lastTrickWinnerId: null,
+      };
       room.match.phase = "playing";
+      broadcastRoom(room, requestId, socket);
+      return;
+    }
+
+    if (message.type === "play-card") {
+      if (!room.match || room.match.phase !== "playing") {
+        sendError(
+          socket,
+          requestId,
+          "play-closed",
+          "Card play is not active.",
+        );
+        return;
+      }
+
+      const play = room.match.play;
+      if (play.currentTurnPlayerId !== playerId) {
+        sendError(
+          socket,
+          requestId,
+          "not-your-turn",
+          "Wait for your turn to play.",
+        );
+        return;
+      }
+
+      const hand = room.match.hands.get(playerId);
+      const card = hand.find((candidate) => candidate.id === message.cardId);
+      if (!card) {
+        sendError(
+          socket,
+          requestId,
+          "invalid-card",
+          "That card is not in your hand.",
+        );
+        return;
+      }
+
+      if (
+        play.completedTricks.length === 0 &&
+        play.currentTrick.length === 0 &&
+        card.suit !== room.match.trump
+      ) {
+        sendError(
+          socket,
+          requestId,
+          "trump-lead-required",
+          "The bidder must lead the first trick with a trump card.",
+        );
+        return;
+      }
+
+      const leadSuit = play.currentTrick[0]?.card.suit;
+      if (
+        leadSuit &&
+        card.suit !== leadSuit &&
+        hand.some((candidate) => candidate.suit === leadSuit)
+      ) {
+        sendError(
+          socket,
+          requestId,
+          "must-follow-suit",
+          `You must follow ${leadSuit}.`,
+        );
+        return;
+      }
+
+      room.match.hands.set(
+        playerId,
+        hand.filter((candidate) => candidate.id !== card.id),
+      );
+      play.currentTrick.push({ playerId, card });
+
+      if (play.currentTrick.length === 4) {
+        const winnerId = determineTrickWinner(
+          play.currentTrick,
+          room.match.trump,
+        );
+        play.completedTricks.push({
+          number: play.completedTricks.length + 1,
+          winnerId,
+          cards: play.currentTrick,
+        });
+        play.currentTrick = [];
+        play.lastTrickWinnerId = winnerId;
+        play.currentTurnPlayerId = winnerId;
+        if (play.completedTricks.length === 12) {
+          room.match.phase = "hand-complete";
+          play.currentTurnPlayerId = null;
+        }
+      } else {
+        play.currentTurnPlayerId = nextPlayerClockwise(room, playerId).id;
+      }
+
       broadcastRoom(room, requestId, socket);
       return;
     }

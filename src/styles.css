@@ -844,6 +844,98 @@ h1 {
   opacity: 0.45;
 }
 
+.play-panel {
+  width: min(920px, 100%);
+  margin: 12px auto 0;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(260px, 1.4fr) minmax(
+      180px,
+      0.9fr
+    );
+  align-items: center;
+  gap: 18px;
+  padding: 15px 16px;
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 3%);
+}
+
+.trick-summary {
+  display: grid;
+  gap: 3px;
+}
+
+.trick-summary strong {
+  font-family: Georgia, serif;
+  font-size: 17px;
+}
+
+.trick-summary span,
+.trick-summary small {
+  color: #8ca197;
+  font-size: 11px;
+}
+
+.current-trick {
+  min-height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.trick-card {
+  width: 52px;
+  height: 65px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  border-radius: 7px;
+  color: #17271f;
+  background: #f7f0df;
+  box-shadow: 0 6px 14px rgb(0 0 0 / 20%);
+}
+
+.trick-card > span {
+  font-family: Georgia, serif;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.trick-card small {
+  max-width: 46px;
+  overflow: hidden;
+  color: #58635e;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trick-card.is-diamonds,
+.trick-card.is-hearts {
+  color: #a43e39;
+}
+
+.empty-trick {
+  color: #6f857a;
+  font-size: 12px;
+}
+
+.trick-score {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.trick-score span {
+  color: #9cafaa;
+  font-size: 11px;
+}
+
+.play-panel > .action-error {
+  grid-column: 1 / -1;
+}
+
 .connection-note {
   display: flex;
   align-items: center;
@@ -959,7 +1051,8 @@ h1 {
 
   .bidding-panel,
   .bidding-summary,
-  .ground-panel {
+  .ground-panel,
+  .play-panel {
     align-items: stretch;
     flex-direction: column;
   }
@@ -974,6 +1067,14 @@ h1 {
 
   .ground-panel > div {
     margin-right: 0;
+  }
+
+  .play-panel {
+    display: flex;
+  }
+
+  .current-trick {
+    width: 100%;
   }
 
   .bidding-summary {

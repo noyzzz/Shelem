@@ -285,16 +285,20 @@ test("starts a four-player hand and deals private cards", async () => {
   const discardIds = northGround.room.match.yourHand
     .slice(0, 4)
     .map((card) => card.id);
+  const retainedCards = northGround.room.match.yourHand.filter(
+    (card) => !discardIds.includes(card.id),
+  );
+  const trump = retainedCards[0].suit;
   const completedGround = await command(clients[2], {
     type: "complete-ground",
     playerId: "north",
     discardIds,
-    trump: "hearts",
+    trump,
   });
   assert.equal(completedGround.room.match.phase, "playing");
   assert.equal(completedGround.room.match.yourHand.length, 12);
   assert.equal(completedGround.room.match.discardCount, 4);
-  assert.equal(completedGround.room.match.trump, "hearts");
+  assert.equal(completedGround.room.match.trump, trump);
   assert.equal("discarded" in completedGround.room.match, false);
 
   const eastPlaying = await waitForMessage(
@@ -303,8 +307,116 @@ test("starts a four-player hand and deals private cards", async () => {
   );
   assert.equal(eastPlaying.room.match.yourHand.length, 12);
   assert.equal(eastPlaying.room.match.discardCount, 4);
-  assert.equal(eastPlaying.room.match.trump, "hearts");
+  assert.equal(eastPlaying.room.match.trump, trump);
   assert.equal("discarded" in eastPlaying.room.match, false);
+
+  const clientByPlayerId = new Map(
+    playerIds.map((playerId, index) => [playerId, clients[index]]),
+  );
+  const hands = new Map([
+    ["south", [...dealtStates[0].room.match.yourHand]],
+    ["west", [...dealtStates[1].room.match.yourHand]],
+    ["north", [...completedGround.room.match.yourHand]],
+    ["east", [...dealtStates[3].room.match.yourHand]],
+  ]);
+  const rankOrder = [
+    "A",
+    "K",
+    "Q",
+    "J",
+    "10",
+    "9",
+    "8",
+    "7",
+    "6",
+    "5",
+    "4",
+    "3",
+    "2",
+  ];
+  const expectedWinner = (trick) => {
+    const leadSuit = trick[0].card.suit;
+    const trumpCards = trick.filter(({ card }) => card.suit === trump);
+    const eligible =
+      trumpCards.length > 0
+        ? trumpCards
+        : trick.filter(({ card }) => card.suit === leadSuit);
+    return eligible.reduce((winner, play) =>
+      rankOrder.indexOf(play.card.rank) < rankOrder.indexOf(winner.card.rank)
+        ? play
+        : winner,
+    ).playerId;
+  };
+
+  let playState = completedGround;
+  let followSuitRejectionChecked = false;
+  for (let playIndex = 0; playIndex < 48; playIndex += 1) {
+    const play = playState.room.match.play;
+    const currentPlayerId = play.currentTurnPlayerId;
+    const hand = hands.get(currentPlayerId);
+    const leadSuit = play.currentTrick[0]?.card.suit;
+    let legalCards = hand;
+    if (play.completedTrickCount === 0 && play.currentTrick.length === 0) {
+      legalCards = hand.filter((card) => card.suit === trump);
+    } else if (leadSuit && hand.some((card) => card.suit === leadSuit)) {
+      legalCards = hand.filter((card) => card.suit === leadSuit);
+    }
+
+    if (
+      !followSuitRejectionChecked &&
+      leadSuit &&
+      hand.some((card) => card.suit === leadSuit) &&
+      hand.some((card) => card.suit !== leadSuit)
+    ) {
+      const illegalCard = hand.find((card) => card.suit !== leadSuit);
+      const rejectedPlay = await command(clientByPlayerId.get(currentPlayerId), {
+        type: "play-card",
+        playerId: currentPlayerId,
+        cardId: illegalCard.id,
+      });
+      assert.equal(rejectedPlay.code, "must-follow-suit");
+      followSuitRejectionChecked = true;
+    }
+
+    const card = legalCards[0];
+    const completedTrick =
+      play.currentTrick.length === 3
+        ? [...play.currentTrick, { playerId: currentPlayerId, card }]
+        : null;
+    const response = await command(clientByPlayerId.get(currentPlayerId), {
+      type: "play-card",
+      playerId: currentPlayerId,
+      cardId: card.id,
+    });
+    hands.set(
+      currentPlayerId,
+      hand.filter((candidate) => candidate.id !== card.id),
+    );
+
+    if (completedTrick) {
+      assert.equal(
+        response.room.match.play.lastTrickWinnerId,
+        expectedWinner(completedTrick),
+      );
+    }
+    playState = response;
+  }
+
+  assert.equal(playState.room.match.phase, "hand-complete");
+  assert.equal(playState.room.match.play.completedTrickCount, 12);
+  assert.equal(playState.room.match.play.currentTurnPlayerId, null);
+  assert.equal(
+    Object.values(playState.room.match.play.trickWins).reduce(
+      (total, wins) => total + wins,
+      0,
+    ),
+    12,
+  );
+  assert.equal(
+    [...hands.values()].reduce((total, hand) => total + hand.length, 0),
+    0,
+  );
+  assert.equal(followSuitRejectionChecked, true);
 
   clients.forEach((client) => client.close());
 });
