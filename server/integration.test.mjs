@@ -486,6 +486,50 @@ test("starts a four-player hand and deals private cards", async () => {
   assert.deepEqual(playState.room.score, expectedResult.scoreDelta);
   assert.equal(playState.room.match.result.madeBid, expectedResult.madeBid);
   assert.equal(playState.room.match.result.shelem, expectedResult.shelem);
+  assert.deepEqual(playState.room.match.nextHandReadyPlayerIds, []);
+
+  for (let playerIndex = 0; playerIndex < 3; playerIndex += 1) {
+    const readyState = await command(clients[playerIndex], {
+      type: "set-next-hand-ready",
+      playerId: playerIds[playerIndex],
+      ready: true,
+    });
+    assert.equal(readyState.room.match.phase, "hand-results");
+    assert.equal(
+      readyState.room.match.nextHandReadyPlayerIds.length,
+      playerIndex + 1,
+    );
+  }
+
+  const nextHand = await command(clients[3], {
+    type: "set-next-hand-ready",
+    playerId: playerIds[3],
+    ready: true,
+  });
+  assert.equal(nextHand.room.match.phase, "bidding");
+  assert.equal(nextHand.room.match.handNumber, 2);
+  assert.equal(nextHand.room.match.dealerPosition, "west");
+  assert.equal(nextHand.room.match.firstBidderPosition, "north");
+  assert.equal(nextHand.room.match.bidding.highBidderId, "north");
+  assert.equal(nextHand.room.match.bidding.currentTurnPlayerId, "east");
+  assert.deepEqual(nextHand.room.score, expectedResult.scoreDelta);
+  assert.deepEqual(nextHand.room.match.nextHandReadyPlayerIds, []);
+
+  const nextHandStates = await Promise.all(
+    clients.map((client, index) =>
+      index === 3
+        ? nextHand
+        : waitForMessage(
+            client,
+            (message) => message.room?.match?.handNumber === 2,
+          ),
+    ),
+  );
+  const nextDealCards = nextHandStates.flatMap(
+    (message) => message.room.match.yourHand,
+  );
+  assert.equal(nextDealCards.length, 48);
+  assert.equal(new Set(nextDealCards.map((card) => card.id)).size, 48);
 
   clients.forEach((client) => client.close());
 });

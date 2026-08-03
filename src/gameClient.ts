@@ -36,6 +36,7 @@ export type Match = {
   groundCount: number;
   discardCount: number;
   trump: Card["suit"] | null;
+  nextHandReadyPlayerIds: string[];
   handCounts: Record<string, number>;
   yourHand: Card[];
   bidding: {
@@ -227,6 +228,10 @@ class GameClient {
 
   playCard(cardId: string) {
     return this.request({ type: "play-card", cardId });
+  }
+
+  setNextHandReady(ready: boolean) {
+    return this.request({ type: "set-next-hand-ready", ready });
   }
 
   leaveRoom() {

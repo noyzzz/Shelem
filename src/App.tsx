@@ -197,6 +197,23 @@ export function App() {
     }
   };
 
+  const toggleNextHandReady = async () => {
+    if (!room?.match) return;
+    const isReady = room.match.nextHandReadyPlayerIds.includes(
+      gameClient.playerId,
+    );
+    try {
+      await gameClient.setNextHandReady(!isReady);
+      setActionError("");
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Unable to update your readiness.",
+      );
+    }
+  };
+
   const playableCardIds = getPlayableCardIds(room);
 
   const copyInvite = async () => {
@@ -368,7 +385,11 @@ export function App() {
             <PlayPanel actionError={actionError} room={room} />
           )}
           {room?.match?.phase === "hand-results" && (
-            <ResultPanel room={room} />
+            <ResultPanel
+              actionError={actionError}
+              onToggleReady={toggleNextHandReady}
+              room={room}
+            />
           )}
 
           <div className="lobby-footer">
@@ -763,9 +784,19 @@ function PlayPanel({
   );
 }
 
-function ResultPanel({ room }: { room: Room }) {
+function ResultPanel({
+  actionError,
+  onToggleReady,
+  room,
+}: {
+  actionError: string;
+  onToggleReady: () => void;
+  room: Room;
+}) {
   const result = room.match?.result;
   if (!result) return null;
+  const readyPlayerIds = room.match?.nextHandReadyPlayerIds ?? [];
+  const isReady = readyPlayerIds.includes(gameClient.playerId);
 
   const outcome = result.shelem
     ? `${teamLabel(result.biddingTeam)} won Shelem`
@@ -809,6 +840,23 @@ function ResultPanel({ room }: { room: Room }) {
           </dl>
         </article>
       ))}
+      {!room.matchWinnerTeam && (
+        <div className="next-hand-ready">
+          <span>{readyPlayerIds.length} of 4 ready for the next hand</span>
+          <button
+            className={`ready-button ${isReady ? "is-ready" : ""}`}
+            onClick={onToggleReady}
+            type="button"
+          >
+            {isReady ? "Ready for next hand ✓" : "Ready for next hand"}
+          </button>
+          {actionError && (
+            <p className="action-error" role="alert">
+              {actionError}
+            </p>
+          )}
+        </div>
+      )}
     </section>
   );
 }

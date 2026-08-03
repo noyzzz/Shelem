@@ -1020,6 +1020,29 @@ h1 {
   font-weight: 700;
 }
 
+.next-hand-ready {
+  grid-column: 1 / -1;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 7px 8px 7px 17px;
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 3%);
+}
+
+.next-hand-ready > span {
+  margin-right: auto;
+  color: #8ca197;
+  font-size: 12px;
+}
+
+.next-hand-ready .action-error {
+  width: 100%;
+}
+
 .connection-note {
   display: flex;
   align-items: center;
@@ -1164,6 +1187,16 @@ h1 {
   .result-heading,
   .result-team {
     min-height: auto;
+  }
+
+  .next-hand-ready {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 14px;
+  }
+
+  .next-hand-ready .ready-button {
+    width: 100%;
   }
 
   .current-trick {

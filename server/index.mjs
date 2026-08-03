@@ -68,6 +68,9 @@ const serializeRoom = (room, viewerId) => ({
           groundCount: room.match.ground.length,
           discardCount: room.match.discarded.length,
           trump: room.match.trump,
+          nextHandReadyPlayerIds: [
+            ...room.match.nextHandReadyPlayerIds,
+          ],
           handCounts: Object.fromEntries(
             [...room.match.hands].map(([playerId, hand]) => [
               playerId,
@@ -140,34 +143,47 @@ const shuffle = (cards) => {
   return cards;
 };
 
-const startMatchIfReady = (room) => {
-  const players = [...room.players.values()];
-  if (
-    room.match ||
-    players.length !== 4 ||
-    players.some((player) => !player.ready || !player.connected)
-  ) {
-    return;
-  }
+const playerAtPosition = (room, position) =>
+  [...room.players.values()].find((player) => player.position === position);
 
+const nextPositionClockwise = (position) =>
+  positions[(positions.indexOf(position) + 1) % positions.length];
+
+const startHand = (room, handNumber, dealerPosition) => {
   const deck = shuffle(createDeck());
-  const hands = new Map(players.map((player) => [player.id, []]));
+  const playersInDealOrder = Array.from({ length: 4 }, (_, index) =>
+    playerAtPosition(
+      room,
+      positions[
+        (positions.indexOf(dealerPosition) + index + 1) % positions.length
+      ],
+    ),
+  );
+  const hands = new Map(
+    [...room.players.values()].map((player) => [player.id, []]),
+  );
   for (let cardIndex = 0; cardIndex < 48; cardIndex += 1) {
-    const player = players[cardIndex % players.length];
+    const player = playersInDealOrder[cardIndex % playersInDealOrder.length];
     hands.get(player.id).push(deck[cardIndex]);
   }
 
-  const firstBidder = players.find((player) => player.position === "west");
-  const secondBidder = players.find((player) => player.position === "north");
+  const firstBidderPosition = nextPositionClockwise(dealerPosition);
+  const firstBidder = playerAtPosition(room, firstBidderPosition);
+  const secondBidder = playerAtPosition(
+    room,
+    nextPositionClockwise(firstBidderPosition),
+  );
   room.match = {
     phase: "bidding",
-    handNumber: 1,
-    dealerPosition: "south",
-    firstBidderPosition: "west",
+    handNumber,
+    dealerPosition,
+    firstBidderPosition,
     hands,
     ground: deck.slice(48),
     discarded: [],
     trump: null,
+    nextHandReadyPlayerIds: new Set(),
+    result: null,
     bidding: {
       currentBid: 100,
       highBidderId: firstBidder.id,
@@ -178,6 +194,19 @@ const startMatchIfReady = (room) => {
       winnerId: null,
     },
   };
+};
+
+const startMatchIfReady = (room) => {
+  const players = [...room.players.values()];
+  if (
+    room.match ||
+    players.length !== 4 ||
+    players.some((player) => !player.ready || !player.connected)
+  ) {
+    return;
+  }
+
+  startHand(room, 1, "south");
 };
 
 const advanceBidTurn = (room, currentPlayerId) => {
@@ -680,6 +709,52 @@ webSocketServer.on("connection", (socket) => {
         }
       } else {
         play.currentTurnPlayerId = nextPlayerClockwise(room, playerId).id;
+      }
+
+      broadcastRoom(room, requestId, socket);
+      return;
+    }
+
+    if (message.type === "set-next-hand-ready") {
+      if (!room.match || room.match.phase !== "hand-results") {
+        sendError(
+          socket,
+          requestId,
+          "hand-not-complete",
+          "The current hand is not complete.",
+        );
+        return;
+      }
+      if (room.matchWinnerTeam) {
+        sendError(
+          socket,
+          requestId,
+          "match-complete",
+          "The match is already complete.",
+        );
+        return;
+      }
+
+      if (message.ready) {
+        room.match.nextHandReadyPlayerIds.add(playerId);
+      } else {
+        room.match.nextHandReadyPlayerIds.delete(playerId);
+      }
+
+      const allPlayersReady =
+        room.players.size === 4 &&
+        [...room.players.values()].every(
+          (candidate) =>
+            candidate.connected &&
+            room.match.nextHandReadyPlayerIds.has(candidate.id),
+        );
+      if (allPlayersReady) {
+        const previousMatch = room.match;
+        startHand(
+          room,
+          previousMatch.handNumber + 1,
+          nextPositionClockwise(previousMatch.dealerPosition),
+        );
       }
 
       broadcastRoom(room, requestId, socket);
