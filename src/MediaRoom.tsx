@@ -23,6 +23,7 @@ export function MediaRoom({ players }: MediaRoomProps) {
   );
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
   const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [cameraPending, setCameraPending] = useState(false);
   const [error, setError] = useState("");
 
   const syncRoom = (room: Room) => {
@@ -62,7 +63,9 @@ export function MediaRoom({ players }: MediaRoomProps) {
       const credentials = await gameClient.requestMediaToken();
       const room = new Room({
         adaptiveStream: true,
-        dynacast: true,
+        // A Shelem room has at most four publishers. Keeping every camera
+        // active makes local previews predictable while players join.
+        dynacast: false,
       });
       roomRef.current = room;
 
@@ -75,6 +78,14 @@ export function MediaRoom({ players }: MediaRoomProps) {
         .on(RoomEvent.TrackUnpublished, sync)
         .on(RoomEvent.LocalTrackPublished, sync)
         .on(RoomEvent.LocalTrackUnpublished, sync)
+        .on(RoomEvent.TrackMuted, sync)
+        .on(RoomEvent.TrackUnmuted, sync)
+        .on(RoomEvent.TrackStreamStateChanged, sync)
+        .on(RoomEvent.Reconnected, sync)
+        .on(RoomEvent.MediaDevicesError, (deviceError: Error) => {
+          setError(mediaDeviceError(deviceError, "camera or microphone"));
+          sync();
+        })
         .on(
           RoomEvent.TrackSubscribed,
           (track: RemoteTrack) => {
@@ -120,13 +131,18 @@ export function MediaRoom({ players }: MediaRoomProps) {
 
   const toggleCamera = async () => {
     const room = roomRef.current;
-    if (!room) return;
+    if (!room || cameraPending) return;
     setError("");
+    setCameraPending(true);
     try {
-      await room.localParticipant.setCameraEnabled(!cameraEnabled);
+      await room.localParticipant.setCameraEnabled(
+        !room.localParticipant.isCameraEnabled,
+      );
       syncRoom(room);
     } catch (caught) {
       setError(mediaDeviceError(caught, "camera"));
+    } finally {
+      setCameraPending(false);
     }
   };
 
@@ -171,10 +187,15 @@ export function MediaRoom({ players }: MediaRoomProps) {
               <button
                 aria-pressed={cameraEnabled}
                 className={cameraEnabled ? "is-on" : ""}
+                disabled={cameraPending}
                 onClick={toggleCamera}
                 type="button"
               >
-                {cameraEnabled ? "Camera on" : "Camera off"}
+                {cameraPending
+                  ? "Starting camera…"
+                  : cameraEnabled
+                    ? "Camera on"
+                    : "Camera off"}
               </button>
               <button className="media-leave" onClick={leaveMedia} type="button">
                 Leave call
@@ -222,6 +243,10 @@ function ParticipantVideo({
     const element = videoRef.current;
     if (!videoTrack || !element) return;
     videoTrack.attach(element);
+    void element.play().catch(() => {
+      // Muted inline video normally autoplays. A later browser gesture or
+      // track event will retry if a platform temporarily blocks playback.
+    });
     return () => {
       videoTrack.detach(element);
     };
