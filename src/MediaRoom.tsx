@@ -23,10 +23,15 @@ export function MediaRoom({ players }: MediaRoomProps) {
   );
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
   const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [localCameraTrack, setLocalCameraTrack] =
+    useState<VideoTrack | null>(null);
   const [cameraPending, setCameraPending] = useState(false);
   const [error, setError] = useState("");
 
   const syncRoom = (room: Room) => {
+    const cameraPublication = room.localParticipant.getTrackPublication(
+      Track.Source.Camera,
+    );
     setState(room.state);
     setParticipants([
       room.localParticipant,
@@ -34,6 +39,10 @@ export function MediaRoom({ players }: MediaRoomProps) {
     ]);
     setMicrophoneEnabled(room.localParticipant.isMicrophoneEnabled);
     setCameraEnabled(room.localParticipant.isCameraEnabled);
+    setLocalCameraTrack((currentTrack) =>
+      cameraPublication?.videoTrack ??
+      (room.localParticipant.isCameraEnabled ? currentTrack : null),
+    );
   };
 
   const leaveMedia = async () => {
@@ -44,6 +53,7 @@ export function MediaRoom({ players }: MediaRoomProps) {
     setState(ConnectionState.Disconnected);
     setMicrophoneEnabled(false);
     setCameraEnabled(false);
+    setLocalCameraTrack(null);
   };
 
   useEffect(
@@ -107,6 +117,7 @@ export function MediaRoom({ players }: MediaRoomProps) {
           setState(ConnectionState.Disconnected);
           setMicrophoneEnabled(false);
           setCameraEnabled(false);
+          setLocalCameraTrack(null);
         });
 
       await room.connect(credentials.url, credentials.token, {
@@ -137,8 +148,16 @@ export function MediaRoom({ players }: MediaRoomProps) {
     setError("");
     setCameraPending(true);
     try {
-      await room.localParticipant.setCameraEnabled(
-        !room.localParticipant.isCameraEnabled,
+      const enabling = !room.localParticipant.isCameraEnabled;
+      const publication =
+        await room.localParticipant.setCameraEnabled(enabling);
+      setLocalCameraTrack(
+        enabling
+          ? (publication?.videoTrack ??
+              room.localParticipant.getTrackPublication(Track.Source.Camera)
+                ?.videoTrack ??
+              null)
+          : null,
       );
       syncRoom(room);
     } catch (caught) {
@@ -216,6 +235,9 @@ export function MediaRoom({ players }: MediaRoomProps) {
               player={players.find(
                 (candidate) => candidate.id === participant.identity,
               )}
+              localCameraTrack={
+                participant.isLocal ? localCameraTrack : undefined
+              }
             />
           ))}
         </div>
@@ -233,17 +255,33 @@ export function MediaRoom({ players }: MediaRoomProps) {
 function ParticipantVideo({
   participant,
   player,
+  localCameraTrack,
 }: {
   participant: Participant;
   player?: Player;
+  localCameraTrack?: VideoTrack | null;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const publication = participant.getTrackPublication(Track.Source.Camera);
-  const videoTrack = publication?.track as VideoTrack | undefined;
+  const videoTrack = participant.isLocal
+    ? localCameraTrack
+    : publication?.videoTrack;
 
   useEffect(() => {
     const element = videoRef.current;
     if (!videoTrack || !element) return;
+
+    if (participant.isLocal) {
+      // Use the captured camera stream directly for the local tile. The
+      // published track can be healthy while publication bookkeeping is a
+      // render behind, especially immediately after granting permission.
+      element.srcObject = new MediaStream([videoTrack.mediaStreamTrack]);
+      void element.play().catch(() => {});
+      return () => {
+        element.srcObject = null;
+      };
+    }
+
     videoTrack.attach(element);
     void element.play().catch(() => {
       // Muted inline video normally autoplays. A later browser gesture or
@@ -252,10 +290,12 @@ function ParticipantVideo({
     return () => {
       videoTrack.detach(element);
     };
-  }, [videoTrack]);
+  }, [participant.isLocal, videoTrack]);
 
   const name = player?.name || participant.name || "Player";
-  const cameraOn = Boolean(videoTrack && !publication?.isMuted);
+  const cameraOn = Boolean(
+    videoTrack && (participant.isLocal || !publication?.isMuted),
+  );
 
   return (
     <div className="media-participant">
