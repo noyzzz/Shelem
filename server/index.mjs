@@ -190,10 +190,6 @@ const startHand = (room, handNumber, dealerPosition) => {
 
   const firstBidderPosition = nextPositionClockwise(dealerPosition);
   const firstBidder = playerAtPosition(room, firstBidderPosition);
-  const secondBidder = playerAtPosition(
-    room,
-    nextPositionClockwise(firstBidderPosition),
-  );
   room.match = {
     phase: "bidding",
     handNumber,
@@ -206,11 +202,11 @@ const startHand = (room, handNumber, dealerPosition) => {
     nextHandReadyPlayerIds: new Set(),
     result: null,
     bidding: {
-      currentBid: 100,
-      highBidderId: firstBidder.id,
-      currentTurnPlayerId: secondBidder.id,
+      currentBid: null,
+      highBidderId: null,
+      currentTurnPlayerId: firstBidder.id,
       passedPlayerIds: new Set(),
-      history: [{ playerId: firstBidder.id, amount: 100 }],
+      history: [],
       winningBid: null,
       winnerId: null,
     },
@@ -519,8 +515,14 @@ const runBotTurn = (room) => {
   if (match.phase === "bidding") {
     const player = room.players.get(match.bidding.currentTurnPlayerId);
     if (!player?.isBot) return;
-    match.bidding.passedPlayerIds.add(player.id);
-    match.bidding.history.push({ playerId: player.id, pass: true });
+    if (match.bidding.currentBid === null) {
+      match.bidding.currentBid = 100;
+      match.bidding.highBidderId = player.id;
+      match.bidding.history.push({ playerId: player.id, amount: 100 });
+    } else {
+      match.bidding.passedPlayerIds.add(player.id);
+      match.bidding.history.push({ playerId: player.id, pass: true });
+    }
     advanceBidTurn(room, player.id);
     broadcastRoom(room);
     return;
@@ -924,9 +926,11 @@ webSocketServer.on("connection", (socket) => {
 
       if (message.type === "place-bid") {
         const amount = Number(message.amount);
+        const minimumBid =
+          bidding.currentBid === null ? 100 : bidding.currentBid + 5;
         if (
           !Number.isInteger(amount) ||
-          amount <= bidding.currentBid ||
+          amount < minimumBid ||
           amount > 165 ||
           amount % 5 !== 0
         ) {
@@ -934,7 +938,7 @@ webSocketServer.on("connection", (socket) => {
             socket,
             requestId,
             "invalid-bid",
-            `Bid in increments of 5 from ${bidding.currentBid + 5} to 165.`,
+            `Bid in increments of 5 from ${minimumBid} to 165.`,
           );
           return;
         }
@@ -943,6 +947,15 @@ webSocketServer.on("connection", (socket) => {
         bidding.highBidderId = playerId;
         bidding.history.push({ playerId, amount });
       } else {
+        if (bidding.currentBid === null) {
+          sendError(
+            socket,
+            requestId,
+            "opening-bid-required",
+            "The opening bidder must bid at least 100.",
+          );
+          return;
+        }
         bidding.passedPlayerIds.add(playerId);
         bidding.history.push({ playerId, pass: true });
       }

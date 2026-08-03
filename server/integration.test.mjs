@@ -406,9 +406,9 @@ test("starts a four-player hand and deals private cards", async () => {
     assert.equal(state.room.match.groundCount, 4);
     assert.equal(state.room.match.dealerPosition, "south");
     assert.equal(state.room.match.firstBidderPosition, "west");
-    assert.equal(state.room.match.bidding.currentBid, 100);
-    assert.equal(state.room.match.bidding.highBidderId, "west");
-    assert.equal(state.room.match.bidding.currentTurnPlayerId, "north");
+    assert.equal(state.room.match.bidding.currentBid, null);
+    assert.equal(state.room.match.bidding.highBidderId, null);
+    assert.equal(state.room.match.bidding.currentTurnPlayerId, "west");
     assert.equal(state.room.players[index].position, playerIds[index]);
     assert.equal("ground" in state.room.match, false);
   }
@@ -416,23 +416,44 @@ test("starts a four-player hand and deals private cards", async () => {
   const outOfTurn = await command(clients[0], {
     type: "place-bid",
     playerId: "south",
-    amount: 105,
+    amount: 130,
   });
   assert.equal(outOfTurn.code, "not-your-turn");
+
+  const openingPass = await command(clients[1], {
+    type: "pass-bid",
+    playerId: "west",
+  });
+  assert.equal(openingPass.code, "opening-bid-required");
+
+  const invalidOpeningBid = await command(clients[1], {
+    type: "place-bid",
+    playerId: "west",
+    amount: 95,
+  });
+  assert.equal(invalidOpeningBid.code, "invalid-bid");
+
+  const westBid = await command(clients[1], {
+    type: "place-bid",
+    playerId: "west",
+    amount: 130,
+  });
+  assert.equal(westBid.room.match.bidding.currentBid, 130);
+  assert.equal(westBid.room.match.bidding.currentTurnPlayerId, "north");
 
   const invalidIncrement = await command(clients[2], {
     type: "place-bid",
     playerId: "north",
-    amount: 103,
+    amount: 133,
   });
   assert.equal(invalidIncrement.code, "invalid-bid");
 
   const northBid = await command(clients[2], {
     type: "place-bid",
     playerId: "north",
-    amount: 105,
+    amount: 150,
   });
-  assert.equal(northBid.room.match.bidding.currentBid, 105);
+  assert.equal(northBid.room.match.bidding.currentBid, 150);
   assert.equal(northBid.room.match.bidding.currentTurnPlayerId, "east");
 
   const eastPass = await command(clients[3], {
@@ -454,7 +475,7 @@ test("starts a four-player hand and deals private cards", async () => {
   });
   assert.equal(westPass.room.match.phase, "ground-reveal");
   assert.equal(westPass.room.match.bidding.winnerId, "north");
-  assert.equal(westPass.room.match.bidding.winningBid, 105);
+  assert.equal(westPass.room.match.bidding.winningBid, 150);
   assert.equal(westPass.room.match.bidding.currentTurnPlayerId, null);
   assert.equal(westPass.room.match.groundCount, 4);
   assert.deepEqual(westPass.room.match.groundCards, []);
@@ -661,7 +682,7 @@ test("starts a four-player hand and deals private cards", async () => {
   const expectedResult = calculateHandScore({
     rawPoints: expectedRawPoints,
     biddingTeam: "one",
-    bid: 105,
+    bid: 150,
   });
   assert.deepEqual(playState.room.match.result.scoreDelta, expectedResult.scoreDelta);
   assert.deepEqual(playState.room.score, expectedResult.scoreDelta);
@@ -691,8 +712,9 @@ test("starts a four-player hand and deals private cards", async () => {
   assert.equal(nextHand.room.match.handNumber, 2);
   assert.equal(nextHand.room.match.dealerPosition, "west");
   assert.equal(nextHand.room.match.firstBidderPosition, "north");
-  assert.equal(nextHand.room.match.bidding.highBidderId, "north");
-  assert.equal(nextHand.room.match.bidding.currentTurnPlayerId, "east");
+  assert.equal(nextHand.room.match.bidding.currentBid, null);
+  assert.equal(nextHand.room.match.bidding.highBidderId, null);
+  assert.equal(nextHand.room.match.bidding.currentTurnPlayerId, "north");
   assert.deepEqual(nextHand.room.score, expectedResult.scoreDelta);
   assert.deepEqual(nextHand.room.match.nextHandReadyPlayerIds, []);
 

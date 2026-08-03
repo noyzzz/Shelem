@@ -101,7 +101,7 @@ export function App() {
   const [copied, setCopied] = useState(false);
   const [formError, setFormError] = useState("");
   const [actionError, setActionError] = useState("");
-  const [bidAmount, setBidAmount] = useState(105);
+  const [bidAmount, setBidAmount] = useState(100);
   const [selectedDiscardIds, setSelectedDiscardIds] = useState<string[]>([]);
   const [seatChangePending, setSeatChangePending] =
     useState<Position | null>(null);
@@ -144,8 +144,10 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const nextBid = (room?.match?.bidding.currentBid ?? 100) + 5;
-    setBidAmount(Math.min(nextBid, 165));
+    const currentBid = room?.match?.bidding.currentBid;
+    const minimumBid =
+      currentBid === null || currentBid === undefined ? 100 : currentBid + 5;
+    setBidAmount(Math.min(minimumBid, 165));
   }, [room?.match?.bidding.currentBid]);
 
   useEffect(() => {
@@ -480,6 +482,8 @@ export function App() {
                             player.id === room.match?.bidding.winnerId,
                         )?.name ?? "The bidder"
                       } won with ${room.match.bidding.winningBid}`
+                    : room.match.bidding.currentBid === null
+                    ? "Opening bid: 100 minimum"
                     : `Current bid: ${room.match.bidding.currentBid}`
                   : room?.players.length === 4
                   ? "All players have joined"
@@ -806,22 +810,31 @@ function BiddingPanel({
   const isYourTurn =
     room.match?.phase === "bidding" &&
     bidding.currentTurnPlayerId === gameClient.playerId;
+  const currentBid = bidding.currentBid;
+  const isOpeningBid = currentBid === null;
+  const minimumBid = currentBid === null ? 100 : currentBid + 5;
   const bidOptions = Array.from(
-    { length: Math.max(0, (165 - bidding.currentBid) / 5) },
-    (_, index) => bidding.currentBid + (index + 1) * 5,
+    { length: Math.max(0, Math.floor((165 - minimumBid) / 5) + 1) },
+    (_, index) => minimumBid + index * 5,
   );
 
   return (
     <section className="bidding-panel" aria-label="Bidding">
       <div className="bidding-summary">
         <div>
-          <span>Highest bid</span>
-          <strong>{bidding.currentBid}</strong>
+          <span>{isOpeningBid ? "Opening bid" : "Highest bid"}</span>
+          <strong>{isOpeningBid ? "100 minimum" : bidding.currentBid}</strong>
         </div>
         <p>
           {room.match?.phase !== "bidding"
             ? `${winner?.name ?? "The bidder"} won the auction.`
-            : `${highBidder?.name ?? "First bidder"} leads. ${
+            : isOpeningBid
+              ? `${
+                  isYourTurn
+                    ? "Choose any opening bid from 100 to 165."
+                    : `Waiting for ${currentPlayer?.name ?? "the first bidder"} to open.`
+                }`
+              : `${highBidder?.name ?? "The bidder"} leads. ${
                 isYourTurn
                   ? "It’s your turn."
                   : `Waiting for ${currentPlayer?.name ?? "the next player"}.`
@@ -851,9 +864,11 @@ function BiddingPanel({
               </button>
             </>
           )}
-          <button className="pass-button" onClick={onPass} type="button">
-            Pass
-          </button>
+          {!isOpeningBid && (
+            <button className="pass-button" onClick={onPass} type="button">
+              Pass
+            </button>
+          )}
         </div>
       )}
 

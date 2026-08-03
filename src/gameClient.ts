@@ -48,8 +48,8 @@ export type Match = {
   handCounts: Record<string, number>;
   yourHand: Card[];
   bidding: {
-    currentBid: number;
-    highBidderId: string;
+    currentBid: number | null;
+    highBidderId: string | null;
     currentTurnPlayerId: string | null;
     passedPlayerIds: string[];
     history: Array<

@@ -35,13 +35,15 @@ There are 165 available points in every hand.
 ## Bidding
 
 - Bidding starts with the player after the dealer.
-- The first bidder cannot pass and opens the bidding at 100.
+- The first bidder cannot pass and must choose an opening bid from 100 to 165.
 - A player may bid or pass.
 - The minimum bid is 100.
-- Bids increase in increments of 5, up to 165.
+- Bids use increments of 5, up to 165.
+- After the opening bid, a player may choose any higher available bid rather
+  than being limited to exactly 5 more than the previous bid.
 - A player who passes cannot bid again during that hand.
 - Bidding ends when only one active bidder remains.
-- Because the first player must open at 100, a hand is never redealt because
+- Because the first player must bid at least 100, a hand is never redealt because
   everybody passed.
 
 ## Ground and trump
