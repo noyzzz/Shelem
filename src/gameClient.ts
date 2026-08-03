@@ -29,7 +29,12 @@ export type Card = {
 };
 
 export type Match = {
-  phase: "bidding" | "ground" | "playing" | "hand-results";
+  phase:
+    | "bidding"
+    | "ground"
+    | "playing"
+    | "hand-results"
+    | "match-complete";
   handNumber: number;
   dealerPosition: Position;
   firstBidderPosition: Position;
@@ -68,6 +73,13 @@ export type Match = {
     shelem: boolean;
     matchScore: Record<Team, number>;
     matchWinnerTeam: Team | null;
+  };
+  forfeit?: {
+    losingPlayerId: string;
+    losingPlayerName: string;
+    losingTeam: Team;
+    winningTeam: Team;
+    reason: "left" | "disconnected";
   };
 };
 

@@ -531,5 +531,81 @@ test("starts a four-player hand and deals private cards", async () => {
   assert.equal(nextDealCards.length, 48);
   assert.equal(new Set(nextDealCards.map((card) => card.id)).size, 48);
 
-  clients.forEach((client) => client.close());
+  const southSawDisconnect = nextMessage(clients[0]);
+  clients[1].close();
+  const disconnectedPlayerState = await southSawDisconnect;
+  assert.equal(
+    disconnectedPlayerState.room.players.find(
+      (player) => player.id === "west",
+    ).connected,
+    false,
+  );
+  assert.equal(disconnectedPlayerState.room.match.phase, "bidding");
+  assert.equal(disconnectedPlayerState.room.matchWinnerTeam, null);
+
+  const forfeitState = await waitForMessage(
+    clients[0],
+    (message) => message.room?.match?.phase === "match-complete",
+  );
+  assert.equal(forfeitState.room.matchWinnerTeam, "one");
+  assert.equal(forfeitState.room.match.forfeit.losingPlayerId, "west");
+  assert.equal(forfeitState.room.match.forfeit.winningTeam, "one");
+  assert.equal(forfeitState.room.match.forfeit.reason, "disconnected");
+  assert.equal(
+    forfeitState.room.players.some((player) => player.id === "west"),
+    false,
+  );
+
+  clients[0].close();
+  clients[2].close();
+  clients[3].close();
+});
+
+test("leaving an active match forfeits immediately", async () => {
+  const clients = await Promise.all([
+    connect(),
+    connect(),
+    connect(),
+    connect(),
+  ]);
+  const playerIds = ["leave-south", "leave-west", "leave-north", "leave-east"];
+  const playerNames = ["south", "west", "north", "east"];
+  const created = await command(clients[0], {
+    type: "create-room",
+    playerId: playerIds[0],
+    name: "South",
+  });
+
+  for (let index = 1; index < clients.length; index += 1) {
+    await command(clients[index], {
+      type: "join-room",
+      playerId: playerIds[index],
+      name: playerNames[index],
+      code: created.room.code,
+    });
+  }
+  for (let index = 0; index < clients.length; index += 1) {
+    await command(clients[index], {
+      type: "set-ready",
+      playerId: playerIds[index],
+      ready: true,
+    });
+  }
+
+  const observerSawForfeit = waitForMessage(
+    clients[0],
+    (message) => message.room?.match?.phase === "match-complete",
+  );
+  await command(clients[1], {
+    type: "leave-room",
+    playerId: playerIds[1],
+  });
+  const forfeitState = await observerSawForfeit;
+  assert.equal(forfeitState.room.matchWinnerTeam, "one");
+  assert.equal(forfeitState.room.match.forfeit.reason, "left");
+  assert.equal(forfeitState.room.match.forfeit.losingPlayerName, "west");
+
+  clients[0].close();
+  clients[2].close();
+  clients[3].close();
 });

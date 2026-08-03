@@ -250,7 +250,9 @@ export function App() {
               {room?.match ? `Hand ${room.match.handNumber}` : "Your private table"}
             </p>
             <h1>
-              {room?.match?.phase === "hand-results"
+              {room?.match?.phase === "match-complete"
+                ? "The match is over."
+                : room?.match?.phase === "hand-results"
                 ? "The hand is scored."
                 : room?.match?.phase === "playing"
                 ? "Trump is declared."
@@ -261,7 +263,13 @@ export function App() {
                   : "Gather your players"}
             </h1>
             <p>
-              {room?.match?.phase === "ground"
+              {room?.match?.phase === "match-complete"
+                ? `${teamLabel(
+                    room.match.forfeit?.winningTeam ??
+                      room.matchWinnerTeam ??
+                      "one",
+                  )} wins by forfeit.`
+                : room?.match?.phase === "ground"
                 ? "The winning bidder will take the zamin and declare trump."
                 : room?.match?.phase === "hand-results"
                   ? room.match.result?.shelem
@@ -306,7 +314,9 @@ export function App() {
               </div>
               <strong>
                 {room?.match
-                  ? room.match.phase === "hand-results"
+                  ? room.match.phase === "match-complete"
+                    ? `${teamLabel(room.matchWinnerTeam ?? "one")} wins`
+                    : room.match.phase === "hand-results"
                     ? `Team One ${room.match.result?.rawPoints.one} · Team Two ${room.match.result?.rawPoints.two}`
                     : room.match.phase === "playing"
                     ? `Trick ${
@@ -329,7 +339,9 @@ export function App() {
                     }`}
               </strong>
               <small>
-                {room?.match?.phase === "hand-results"
+                {room?.match?.phase === "match-complete"
+                  ? "The match ended by forfeit"
+                  : room?.match?.phase === "hand-results"
                   ? `Bid: ${room.match.result?.bid} · ${suitLabel(room.match.trump)} was trump`
                   : room?.match?.phase === "playing"
                   ? `${suitLabel(room.match.trump)} is trump`
@@ -342,7 +354,9 @@ export function App() {
             </div>
           </div>
 
-          {room?.match && room.match.phase !== "hand-results" && (
+          {room?.match &&
+            room.match.phase !== "hand-results" &&
+            room.match.phase !== "match-complete" && (
             <Hand
               cards={room.match.yourHand}
               enabledIds={
@@ -360,7 +374,7 @@ export function App() {
               selectedIds={selectedDiscardIds}
             />
           )}
-          {room?.match && (
+          {room?.match && room.match.phase !== "match-complete" && (
             <BiddingPanel
               actionError={actionError}
               bidAmount={bidAmount}
@@ -391,6 +405,9 @@ export function App() {
               room={room}
             />
           )}
+          {room?.match?.phase === "match-complete" && (
+            <ForfeitPanel room={room} />
+          )}
 
           <div className="lobby-footer">
             <div className="connection-note">
@@ -405,7 +422,9 @@ export function App() {
             </div>
             {room?.match ? (
               <span className="match-status">
-                {room.match.phase === "ground"
+                {room.match.phase === "match-complete"
+                  ? "Match complete"
+                  : room.match.phase === "ground"
                   ? room.match.bidding.winnerId === gameClient.playerId
                     ? "Choose four discards and trump"
                     : "Waiting for the bidder"
@@ -857,6 +876,27 @@ function ResultPanel({
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+function ForfeitPanel({ room }: { room: Room }) {
+  const forfeit = room.match?.forfeit;
+  if (!forfeit) return null;
+
+  return (
+    <section className="forfeit-panel" aria-label="Match result">
+      <span>Match result</span>
+      <strong>{teamLabel(forfeit.winningTeam)} wins by forfeit</strong>
+      <p>
+        {forfeit.losingPlayerName}{" "}
+        {forfeit.reason === "left"
+          ? "left the match."
+          : "did not reconnect before the grace period ended."}
+      </p>
+      <div>
+        Final score: Team One {room.score.one} · Team Two {room.score.two}
+      </div>
     </section>
   );
 }

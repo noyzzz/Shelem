@@ -104,6 +104,7 @@ const serializeRoom = (room, viewerId) => ({
               }
             : null,
           result: room.match.result,
+          forfeit: room.match.forfeit,
         },
       }
     : {}),
@@ -314,6 +315,25 @@ const scoreCompletedHand = (room) => {
   match.phase = "hand-results";
 };
 
+const forfeitMatch = (room, player, reason) => {
+  if (!room.match || room.matchWinnerTeam) return;
+
+  const losingTeam = teamForPosition(player.position);
+  const winningTeam = losingTeam === "one" ? "two" : "one";
+  room.matchWinnerTeam = winningTeam;
+  room.match.phase = "match-complete";
+  room.match.forfeit = {
+    losingPlayerId: player.id,
+    losingPlayerName: player.name,
+    losingTeam,
+    winningTeam,
+    reason,
+  };
+  if (room.match.play) {
+    room.match.play.currentTurnPlayerId = null;
+  }
+};
+
 const sendError = (socket, requestId, code, message) => {
   send(socket, { type: "error", requestId, code, message });
 };
@@ -343,6 +363,11 @@ const detachSocket = (socket, removeImmediately = false) => {
     const currentPlayer = currentRoom?.players.get(player.id);
     if (!currentRoom || !currentPlayer || currentPlayer.socket) return;
 
+    forfeitMatch(
+      currentRoom,
+      currentPlayer,
+      removeImmediately ? "left" : "disconnected",
+    );
     currentRoom.players.delete(player.id);
     if (currentRoom.players.size === 0) {
       rooms.delete(currentRoom.code);
