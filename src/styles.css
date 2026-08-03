@@ -619,6 +619,99 @@ h1 {
   background: rgb(2 12 8 / 34%);
 }
 
+.bidding-panel {
+  width: min(920px, 100%);
+  min-height: 82px;
+  margin: 12px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 14px 16px;
+  border: 1px solid rgb(239 201 120 / 16%);
+  border-radius: 16px;
+  background: rgb(239 201 120 / 5%);
+}
+
+.bidding-summary {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-right: auto;
+}
+
+.bidding-summary > div {
+  min-width: 76px;
+  display: grid;
+}
+
+.bidding-summary span {
+  color: #879b92;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.bidding-summary strong {
+  color: #efc978;
+  font-family: Georgia, serif;
+  font-size: 26px;
+}
+
+.bidding-summary p {
+  margin: 0;
+  color: #a6b7af;
+  font-size: 13px;
+}
+
+.bid-actions {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
+.bid-actions label {
+  display: grid;
+  gap: 4px;
+  color: #879b92;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.bid-actions select,
+.bid-button,
+.pass-button {
+  height: 42px;
+  border-radius: 10px;
+}
+
+.bid-actions select {
+  min-width: 82px;
+  padding: 0 11px;
+  border: 1px solid rgb(255 255 255 / 13%);
+  outline: none;
+  color: #f8f2e7;
+  background: #10291e;
+}
+
+.bid-button,
+.pass-button {
+  padding: 0 16px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.pass-button {
+  border: 1px solid rgb(255 255 255 / 12%);
+  color: #a9bab2;
+  background: transparent;
+}
+
+.action-error {
+  margin: 0;
+  color: #f0a99e;
+  font-size: 12px;
+}
+
 .hand-heading {
   display: flex;
   align-items: center;
@@ -783,6 +876,24 @@ h1 {
   .hand-cards {
     grid-template-columns: repeat(6, 1fr);
   }
+
+  .bidding-panel,
+  .bidding-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bidding-panel {
+    gap: 12px;
+  }
+
+  .bidding-summary {
+    gap: 8px;
+  }
+
+  .bid-actions {
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 500px) {
@@ -878,6 +989,12 @@ h1 {
 
   .hand-cards {
     gap: 6px;
+  }
+
+  .bid-actions label,
+  .bid-actions select,
+  .bid-actions button {
+    flex: 1;
   }
 
   .ready-button {

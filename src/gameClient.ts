@@ -27,13 +27,25 @@ export type Card = {
 };
 
 export type Match = {
-  phase: "dealt";
+  phase: "bidding" | "ground";
   handNumber: number;
   dealerPosition: Position;
   firstBidderPosition: Position;
   groundCount: number;
   handCounts: Record<string, number>;
   yourHand: Card[];
+  bidding: {
+    currentBid: number;
+    highBidderId: string;
+    currentTurnPlayerId: string | null;
+    passedPlayerIds: string[];
+    history: Array<
+      | { playerId: string; amount: number }
+      | { playerId: string; pass: true }
+    >;
+    winningBid: number | null;
+    winnerId: string | null;
+  };
 };
 
 export type Room = {
@@ -175,6 +187,14 @@ class GameClient {
 
   setReady(ready: boolean) {
     return this.request({ type: "set-ready", ready });
+  }
+
+  placeBid(amount: number) {
+    return this.request({ type: "place-bid", amount });
+  }
+
+  passBid() {
+    return this.request({ type: "pass-bid" });
   }
 
   leaveRoom() {

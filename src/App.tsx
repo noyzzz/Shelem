@@ -40,6 +40,8 @@ export function App() {
   const [room, setRoom] = useState<Room | null>(null);
   const [copied, setCopied] = useState(false);
   const [formError, setFormError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [bidAmount, setBidAmount] = useState(105);
   const [connectionStatus, setConnectionStatus] = useState("connecting");
   const ready =
     room?.players.find((player) => player.id === gameClient.playerId)?.ready ??
@@ -70,6 +72,11 @@ export function App() {
       unsubscribeStatus();
     };
   }, []);
+
+  useEffect(() => {
+    const nextBid = (room?.match?.bidding.currentBid ?? 100) + 5;
+    setBidAmount(Math.min(nextBid, 165));
+  }, [room?.match?.bidding.currentBid]);
 
   const begin = (nextFlow: Flow) => {
     setFlow(nextFlow);
@@ -124,6 +131,28 @@ export function App() {
     }
   };
 
+  const placeBid = async () => {
+    try {
+      await gameClient.placeBid(bidAmount);
+      setActionError("");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Unable to place that bid.",
+      );
+    }
+  };
+
+  const passBid = async () => {
+    try {
+      await gameClient.passBid();
+      setActionError("");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Unable to pass.",
+      );
+    }
+  };
+
   const copyInvite = async () => {
     const invite = `${window.location.origin}?room=${roomCode}`;
     await navigator.clipboard?.writeText(invite);
@@ -157,10 +186,18 @@ export function App() {
             <p className="eyebrow">
               {room?.match ? `Hand ${room.match.handNumber}` : "Your private table"}
             </p>
-            <h1>{room?.match ? "The cards are dealt." : "Gather your players"}</h1>
+            <h1>
+              {room?.match?.phase === "ground"
+                ? "The bid is won."
+                : room?.match
+                  ? "The cards are dealt."
+                  : "Gather your players"}
+            </h1>
             <p>
-              {room?.match
-                ? "Your hand is private. Bidding is the next phase."
+              {room?.match?.phase === "ground"
+                ? "The winning bidder will take the zamin and declare trump."
+                : room?.match
+                ? "Your hand is private. Bidding is now open."
                 : "Share the room code. The game begins when all four are ready."}
             </p>
           </div>
@@ -194,12 +231,14 @@ export function App() {
               </div>
               <strong>
                 {room?.match
-                  ? `Bidding starts with ${
-                      room.players.find(
-                        (player) =>
-                          player.position === room.match?.firstBidderPosition,
-                      )?.name ?? "the player after the dealer"
-                    }`
+                  ? room.match.phase === "ground"
+                    ? `${
+                        room.players.find(
+                          (player) =>
+                            player.id === room.match?.bidding.winnerId,
+                        )?.name ?? "The bidder"
+                      } won with ${room.match.bidding.winningBid}`
+                    : `Current bid: ${room.match.bidding.currentBid}`
                   : room?.players.length === 4
                   ? "All players have joined"
                   : `Waiting for ${4 - (room?.players.length ?? 1)} ${
@@ -217,6 +256,16 @@ export function App() {
           </div>
 
           {room?.match && <Hand cards={room.match.yourHand} />}
+          {room?.match && (
+            <BiddingPanel
+              actionError={actionError}
+              bidAmount={bidAmount}
+              onBid={placeBid}
+              onPass={passBid}
+              room={room}
+              setBidAmount={setBidAmount}
+            />
+          )}
 
           <div className="lobby-footer">
             <div className="connection-note">
@@ -230,7 +279,14 @@ export function App() {
                 : "Reconnecting to the game server…"}
             </div>
             {room?.match ? (
-              <span className="match-status">Ready for bidding</span>
+              <span className="match-status">
+                {room.match.phase === "ground"
+                  ? "Bidding complete"
+                  : room.match.bidding.currentTurnPlayerId ===
+                      gameClient.playerId
+                    ? "Your turn to bid"
+                    : "Bidding in progress"}
+              </span>
             ) : (
               <button
                 className={`ready-button ${ready ? "is-ready" : ""}`}
@@ -379,6 +435,94 @@ export function App() {
         </section>
       )}
     </main>
+  );
+}
+
+function BiddingPanel({
+  actionError,
+  bidAmount,
+  onBid,
+  onPass,
+  room,
+  setBidAmount,
+}: {
+  actionError: string;
+  bidAmount: number;
+  onBid: () => void;
+  onPass: () => void;
+  room: Room;
+  setBidAmount: (amount: number) => void;
+}) {
+  const bidding = room.match?.bidding;
+  if (!bidding) return null;
+
+  const highBidder = room.players.find(
+    (player) => player.id === bidding.highBidderId,
+  );
+  const currentPlayer = room.players.find(
+    (player) => player.id === bidding.currentTurnPlayerId,
+  );
+  const winner = room.players.find((player) => player.id === bidding.winnerId);
+  const isYourTurn =
+    room.match?.phase === "bidding" &&
+    bidding.currentTurnPlayerId === gameClient.playerId;
+  const bidOptions = Array.from(
+    { length: Math.max(0, (165 - bidding.currentBid) / 5) },
+    (_, index) => bidding.currentBid + (index + 1) * 5,
+  );
+
+  return (
+    <section className="bidding-panel" aria-label="Bidding">
+      <div className="bidding-summary">
+        <div>
+          <span>Highest bid</span>
+          <strong>{bidding.currentBid}</strong>
+        </div>
+        <p>
+          {room.match?.phase === "ground"
+            ? `${winner?.name ?? "The bidder"} won the auction.`
+            : `${highBidder?.name ?? "First bidder"} leads. ${
+                isYourTurn
+                  ? "It’s your turn."
+                  : `Waiting for ${currentPlayer?.name ?? "the next player"}.`
+              }`}
+        </p>
+      </div>
+
+      {isYourTurn && (
+        <div className="bid-actions">
+          {bidOptions.length > 0 && (
+            <>
+              <label>
+                Your bid
+                <select
+                  onChange={(event) => setBidAmount(Number(event.target.value))}
+                  value={bidAmount}
+                >
+                  {bidOptions.map((amount) => (
+                    <option key={amount} value={amount}>
+                      {amount}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button className="primary bid-button" onClick={onBid} type="button">
+                Place bid
+              </button>
+            </>
+          )}
+          <button className="pass-button" onClick={onPass} type="button">
+            Pass
+          </button>
+        </div>
+      )}
+
+      {actionError && (
+        <p className="action-error" role="alert">
+          {actionError}
+        </p>
+      )}
+    </section>
   );
 }
 

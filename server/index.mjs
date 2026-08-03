@@ -67,6 +67,15 @@ const serializeRoom = (room, viewerId) => ({
             ]),
           ),
           yourHand: room.match.hands.get(viewerId) ?? [],
+          bidding: {
+            currentBid: room.match.bidding.currentBid,
+            highBidderId: room.match.bidding.highBidderId,
+            currentTurnPlayerId: room.match.bidding.currentTurnPlayerId,
+            passedPlayerIds: [...room.match.bidding.passedPlayerIds],
+            history: room.match.bidding.history,
+            winningBid: room.match.bidding.winningBid,
+            winnerId: room.match.bidding.winnerId,
+          },
         },
       }
     : {}),
@@ -121,14 +130,53 @@ const startMatchIfReady = (room) => {
     hands.get(player.id).push(deck[cardIndex]);
   }
 
+  const firstBidder = players.find((player) => player.position === "west");
+  const secondBidder = players.find((player) => player.position === "north");
   room.match = {
-    phase: "dealt",
+    phase: "bidding",
     handNumber: 1,
     dealerPosition: "south",
     firstBidderPosition: "west",
     hands,
     ground: deck.slice(48),
+    bidding: {
+      currentBid: 100,
+      highBidderId: firstBidder.id,
+      currentTurnPlayerId: secondBidder.id,
+      passedPlayerIds: new Set(),
+      history: [{ playerId: firstBidder.id, amount: 100 }],
+      winningBid: null,
+      winnerId: null,
+    },
   };
+};
+
+const advanceBidTurn = (room, currentPlayerId) => {
+  const bidding = room.match.bidding;
+  const activePlayers = [...room.players.values()].filter(
+    (player) => !bidding.passedPlayerIds.has(player.id),
+  );
+  if (activePlayers.length === 1) {
+    bidding.winnerId = activePlayers[0].id;
+    bidding.winningBid = bidding.currentBid;
+    bidding.currentTurnPlayerId = null;
+    room.match.phase = "ground";
+    return;
+  }
+
+  const currentPlayer = room.players.get(currentPlayerId);
+  const currentPositionIndex = positions.indexOf(currentPlayer.position);
+  for (let offset = 1; offset <= positions.length; offset += 1) {
+    const nextPosition =
+      positions[(currentPositionIndex + offset) % positions.length];
+    const nextPlayer = activePlayers.find(
+      (player) => player.position === nextPosition,
+    );
+    if (nextPlayer) {
+      bidding.currentTurnPlayerId = nextPlayer.id;
+      return;
+    }
+  }
 };
 
 const sendError = (socket, requestId, code, message) => {
@@ -285,8 +333,69 @@ webSocketServer.on("connection", (socket) => {
     }
 
     if (message.type === "set-ready") {
+      if (room.match) {
+        sendError(
+          socket,
+          requestId,
+          "match-started",
+          "The match has already started.",
+        );
+        return;
+      }
       player.ready = Boolean(message.ready);
       startMatchIfReady(room);
+      broadcastRoom(room, requestId, socket);
+      return;
+    }
+
+    if (message.type === "place-bid" || message.type === "pass-bid") {
+      if (!room.match || room.match.phase !== "bidding") {
+        sendError(
+          socket,
+          requestId,
+          "bidding-closed",
+          "Bidding is not active.",
+        );
+        return;
+      }
+
+      const bidding = room.match.bidding;
+      if (bidding.currentTurnPlayerId !== playerId) {
+        sendError(
+          socket,
+          requestId,
+          "not-your-turn",
+          "Wait for your turn to bid.",
+        );
+        return;
+      }
+
+      if (message.type === "place-bid") {
+        const amount = Number(message.amount);
+        if (
+          !Number.isInteger(amount) ||
+          amount <= bidding.currentBid ||
+          amount > 165 ||
+          amount % 5 !== 0
+        ) {
+          sendError(
+            socket,
+            requestId,
+            "invalid-bid",
+            `Bid in increments of 5 from ${bidding.currentBid + 5} to 165.`,
+          );
+          return;
+        }
+
+        bidding.currentBid = amount;
+        bidding.highBidderId = playerId;
+        bidding.history.push({ playerId, amount });
+      } else {
+        bidding.passedPlayerIds.add(playerId);
+        bidding.history.push({ playerId, pass: true });
+      }
+
+      advanceBidTurn(room, playerId);
       broadcastRoom(room, requestId, socket);
       return;
     }

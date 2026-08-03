@@ -184,7 +184,7 @@ test("starts a four-player hand and deals private cards", async () => {
     playerId: playerIds[3],
     ready: true,
   });
-  assert.equal(finalReady.room.match.phase, "dealt");
+  assert.equal(finalReady.room.match.phase, "bidding");
 
   const dealtStates = await Promise.all(
     clients.map((client, index) =>
@@ -208,9 +208,56 @@ test("starts a four-player hand and deals private cards", async () => {
     assert.equal(state.room.match.groundCount, 4);
     assert.equal(state.room.match.dealerPosition, "south");
     assert.equal(state.room.match.firstBidderPosition, "west");
+    assert.equal(state.room.match.bidding.currentBid, 100);
+    assert.equal(state.room.match.bidding.highBidderId, "west");
+    assert.equal(state.room.match.bidding.currentTurnPlayerId, "north");
     assert.equal(state.room.players[index].position, playerIds[index]);
     assert.equal("ground" in state.room.match, false);
   }
+
+  const outOfTurn = await command(clients[0], {
+    type: "place-bid",
+    playerId: "south",
+    amount: 105,
+  });
+  assert.equal(outOfTurn.code, "not-your-turn");
+
+  const invalidIncrement = await command(clients[2], {
+    type: "place-bid",
+    playerId: "north",
+    amount: 103,
+  });
+  assert.equal(invalidIncrement.code, "invalid-bid");
+
+  const northBid = await command(clients[2], {
+    type: "place-bid",
+    playerId: "north",
+    amount: 105,
+  });
+  assert.equal(northBid.room.match.bidding.currentBid, 105);
+  assert.equal(northBid.room.match.bidding.currentTurnPlayerId, "east");
+
+  const eastPass = await command(clients[3], {
+    type: "pass-bid",
+    playerId: "east",
+  });
+  assert.deepEqual(eastPass.room.match.bidding.passedPlayerIds, ["east"]);
+  assert.equal(eastPass.room.match.bidding.currentTurnPlayerId, "south");
+
+  const southPass = await command(clients[0], {
+    type: "pass-bid",
+    playerId: "south",
+  });
+  assert.equal(southPass.room.match.bidding.currentTurnPlayerId, "west");
+
+  const westPass = await command(clients[1], {
+    type: "pass-bid",
+    playerId: "west",
+  });
+  assert.equal(westPass.room.match.phase, "ground");
+  assert.equal(westPass.room.match.bidding.winnerId, "north");
+  assert.equal(westPass.room.match.bidding.winningBid, 105);
+  assert.equal(westPass.room.match.bidding.currentTurnPlayerId, null);
 
   clients.forEach((client) => client.close());
 });
