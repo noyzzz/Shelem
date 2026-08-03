@@ -30,29 +30,18 @@ sudo ufw allow 50000:60000/udp
 sudo ufw enable
 ```
 
-## 3. Copy the application to the VPS
+## 3. Clone the application on the VPS
 
-From WSL, run these commands from the repository directory:
+Connect to the VPS, then clone the public repository:
 
 ```bash
-tar \
-  --exclude=.git \
-  --exclude=node_modules \
-  --exclude=dist \
-  --exclude=.env \
-  --exclude=.env.local \
-  --exclude=.env.production \
-  -czf /tmp/shelem.tar.gz .
-
-scp -i ~/.ssh/rookserver_ed25519 \
-  /tmp/shelem.tar.gz \
-  ubuntu@vps-8ef2b9d9.vps.ovh.net:/tmp/shelem.tar.gz
-
 ssh -i ~/.ssh/rookserver_ed25519 ubuntu@vps-8ef2b9d9.vps.ovh.net
-mkdir -p ~/shelem
-tar -xzf /tmp/shelem.tar.gz -C ~/shelem
+git clone --branch main https://github.com/noyzzz/Shelem.git ~/shelem
 cd ~/shelem
 ```
+
+HTTPS is sufficient because the server only needs read access to this public
+repository. Keep development and pushes on a trusted workstation.
 
 ## 4. Create the private production environment
 
@@ -101,9 +90,11 @@ available at the value of `APP_DOMAIN`.
 
 ## Updating later
 
-Copy the newer source over the existing `~/shelem` directory, then rerun:
+Pull the latest committed version, then rebuild the changed services:
 
 ```bash
+cd ~/shelem
+git pull --ff-only
 docker compose \
   --env-file .env.production \
   -f compose.production.yaml \
