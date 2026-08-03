@@ -917,6 +917,26 @@ h1 {
   width: 21px;
 }
 
+.seat-camera-root {
+  position: absolute;
+  z-index: 1;
+  inset: 2px;
+  overflow: hidden;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.seat-camera-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.seat-camera-video.is-local {
+  transform: scaleX(-1);
+}
+
 .avatar.team-one {
   color: #e9c774;
   background: rgb(233 199 116 / 8%);
@@ -947,6 +967,7 @@ h1 {
   width: 20px;
   height: 20px;
   position: absolute;
+  z-index: 2;
   right: -2px;
   bottom: 1px;
   display: grid;

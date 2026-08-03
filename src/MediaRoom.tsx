@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ConnectionState,
   Participant,
@@ -255,36 +256,17 @@ function ParticipantVideo({
   player?: Player;
   localCameraTrack?: VideoTrack | null;
 }) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [seatVideoRoot, setSeatVideoRoot] = useState<HTMLElement | null>(null);
   const publication = participant.getTrackPublication(Track.Source.Camera);
   const videoTrack = participant.isLocal
     ? localCameraTrack
     : publication?.videoTrack;
 
   useEffect(() => {
-    const element = videoRef.current;
-    if (!videoTrack || !element) return;
-
-    if (participant.isLocal) {
-      // This track is supplied only after LiveKit has assigned a publication
-      // SID and while the room remains connected, so the preview reflects
-      // what has actually been published to the other players.
-      element.srcObject = new MediaStream([videoTrack.mediaStreamTrack]);
-      void element.play().catch(() => {});
-      return () => {
-        element.srcObject = null;
-      };
-    }
-
-    videoTrack.attach(element);
-    void element.play().catch(() => {
-      // Muted inline video normally autoplays. A later browser gesture or
-      // track event will retry if a platform temporarily blocks playback.
-    });
-    return () => {
-      videoTrack.detach(element);
-    };
-  }, [participant.isLocal, videoTrack]);
+    setSeatVideoRoot(
+      document.getElementById(seatCameraTargetId(participant.identity)),
+    );
+  }, [participant.identity]);
 
   const name = player?.name || participant.name || "Player";
   const cameraOn = Boolean(
@@ -296,7 +278,7 @@ function ParticipantVideo({
       <div className={`media-video ${cameraOn ? "has-video" : ""}`}>
         {/* Audio tracks are attached separately, so every video element can
             stay muted and satisfy mobile autoplay policies. */}
-        <video autoPlay muted playsInline ref={videoRef} />
+        <TrackVideo isLocal={participant.isLocal} track={videoTrack} />
         {!cameraOn && <span>{initials(name)}</span>}
       </div>
       <div>
@@ -306,9 +288,70 @@ function ParticipantVideo({
         </strong>
         <small>{player ? seatName(player.position) : "At the table"}</small>
       </div>
+      {cameraOn &&
+        seatVideoRoot &&
+        createPortal(
+          <TrackVideo
+            className={`seat-camera-video ${
+              participant.isLocal ? "is-local" : ""
+            }`}
+            isLocal={participant.isLocal}
+            track={videoTrack}
+          />,
+          seatVideoRoot,
+        )}
     </div>
   );
 }
+
+function TrackVideo({
+  className,
+  isLocal,
+  track,
+}: {
+  className?: string;
+  isLocal: boolean;
+  track?: VideoTrack | null;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!track || !element) return;
+
+    if (isLocal) {
+      // This track is supplied only after LiveKit has assigned a publication
+      // SID and while the room remains connected, so the preview reflects
+      // what has actually been published to the other players.
+      element.srcObject = new MediaStream([track.mediaStreamTrack]);
+      void element.play().catch(() => {});
+      return () => {
+        element.srcObject = null;
+      };
+    }
+
+    track.attach(element);
+    void element.play().catch(() => {
+      // Muted inline video normally autoplays. A later browser gesture or
+      // track event will retry if a platform temporarily blocks playback.
+    });
+    return () => {
+      track.detach(element);
+    };
+  }, [isLocal, track]);
+
+  return (
+    <video
+      autoPlay
+      className={className}
+      muted
+      playsInline
+      ref={videoRef}
+    />
+  );
+}
+
+const seatCameraTargetId = (playerId: string) => `seat-camera-${playerId}`;
 
 const initials = (name: string) =>
   name

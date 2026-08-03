@@ -1207,6 +1207,12 @@ function Seat({
     >
       <div className={`avatar team-${team}`}>
         {player ? player.name.slice(0, 1).toUpperCase() : <UsersIcon />}
+        {player && (
+          <span
+            className="seat-camera-root"
+            id={`seat-camera-${player.id}`}
+          />
+        )}
         {player?.ready && <span className="ready-check">✓</span>}
       </div>
       <strong>{player?.name || "Open seat"}</strong>
