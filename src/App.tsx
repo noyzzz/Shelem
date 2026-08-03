@@ -42,6 +42,8 @@ export function App() {
   const [formError, setFormError] = useState("");
   const [actionError, setActionError] = useState("");
   const [bidAmount, setBidAmount] = useState(105);
+  const [selectedDiscardIds, setSelectedDiscardIds] = useState<string[]>([]);
+  const [trump, setTrump] = useState<Card["suit"]>("clubs");
   const [connectionStatus, setConnectionStatus] = useState("connecting");
   const ready =
     room?.players.find((player) => player.id === gameClient.playerId)?.ready ??
@@ -77,6 +79,12 @@ export function App() {
     const nextBid = (room?.match?.bidding.currentBid ?? 100) + 5;
     setBidAmount(Math.min(nextBid, 165));
   }, [room?.match?.bidding.currentBid]);
+
+  useEffect(() => {
+    if (room?.match?.phase !== "ground") {
+      setSelectedDiscardIds([]);
+    }
+  }, [room?.match?.phase]);
 
   const begin = (nextFlow: Flow) => {
     setFlow(nextFlow);
@@ -153,6 +161,31 @@ export function App() {
     }
   };
 
+  const toggleDiscard = (cardId: string) => {
+    setSelectedDiscardIds((selected) =>
+      selected.includes(cardId)
+        ? selected.filter((id) => id !== cardId)
+        : selected.length < 4
+          ? [...selected, cardId]
+          : selected,
+    );
+    setActionError("");
+  };
+
+  const completeGround = async () => {
+    try {
+      await gameClient.completeGround(selectedDiscardIds, trump);
+      setSelectedDiscardIds([]);
+      setActionError("");
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Unable to complete the ground phase.",
+      );
+    }
+  };
+
   const copyInvite = async () => {
     const invite = `${window.location.origin}?room=${roomCode}`;
     await navigator.clipboard?.writeText(invite);
@@ -187,7 +220,9 @@ export function App() {
               {room?.match ? `Hand ${room.match.handNumber}` : "Your private table"}
             </p>
             <h1>
-              {room?.match?.phase === "ground"
+              {room?.match?.phase === "playing"
+                ? "Trump is declared."
+                : room?.match?.phase === "ground"
                 ? "The bid is won."
                 : room?.match
                   ? "The cards are dealt."
@@ -196,6 +231,8 @@ export function App() {
             <p>
               {room?.match?.phase === "ground"
                 ? "The winning bidder will take the zamin and declare trump."
+                : room?.match?.phase === "playing"
+                  ? "The bidder will lead the first trick with a trump card."
                 : room?.match
                 ? "Your hand is private. Bidding is now open."
                 : "Share the room code. The game begins when all four are ready."}
@@ -231,7 +268,9 @@ export function App() {
               </div>
               <strong>
                 {room?.match
-                  ? room.match.phase === "ground"
+                  ? room.match.phase === "playing"
+                    ? `${suitLabel(room.match.trump)} is trump`
+                    : room.match.phase === "ground"
                     ? `${
                         room.players.find(
                           (player) =>
@@ -248,14 +287,28 @@ export function App() {
                     }`}
               </strong>
               <small>
-                {room?.match
+                {room?.match?.phase === "playing"
+                  ? `${room.match.discardCount} bidder discards are face down`
+                  : room?.match?.phase === "ground"
+                    ? "The winning bidder now holds the four zamin cards"
+                  : room?.match
                   ? `${room.match.groundCount} cards are face down in the zamin`
                   : `Invite friends using code ${roomCode}`}
               </small>
             </div>
           </div>
 
-          {room?.match && <Hand cards={room.match.yourHand} />}
+          {room?.match && (
+            <Hand
+              cards={room.match.yourHand}
+              onToggle={toggleDiscard}
+              selectable={
+                room.match.phase === "ground" &&
+                room.match.bidding.winnerId === gameClient.playerId
+              }
+              selectedIds={selectedDiscardIds}
+            />
+          )}
           {room?.match && (
             <BiddingPanel
               actionError={actionError}
@@ -266,6 +319,16 @@ export function App() {
               setBidAmount={setBidAmount}
             />
           )}
+          {room?.match?.phase === "ground" &&
+            room.match.bidding.winnerId === gameClient.playerId && (
+              <GroundPanel
+                actionError={actionError}
+                onSubmit={completeGround}
+                selectedCount={selectedDiscardIds.length}
+                setTrump={setTrump}
+                trump={trump}
+              />
+            )}
 
           <div className="lobby-footer">
             <div className="connection-note">
@@ -281,8 +344,12 @@ export function App() {
             {room?.match ? (
               <span className="match-status">
                 {room.match.phase === "ground"
-                  ? "Bidding complete"
-                  : room.match.bidding.currentTurnPlayerId ===
+                  ? room.match.bidding.winnerId === gameClient.playerId
+                    ? "Choose four discards and trump"
+                    : "Waiting for the bidder"
+                  : room.match.phase === "playing"
+                    ? "Ready for the first trick"
+                    : room.match.bidding.currentTurnPlayerId ===
                       gameClient.playerId
                     ? "Your turn to bid"
                     : "Bidding in progress"}
@@ -479,7 +546,7 @@ function BiddingPanel({
           <strong>{bidding.currentBid}</strong>
         </div>
         <p>
-          {room.match?.phase === "ground"
+          {room.match?.phase !== "bidding"
             ? `${winner?.name ?? "The bidder"} won the auction.`
             : `${highBidder?.name ?? "First bidder"} leads. ${
                 isYourTurn
@@ -517,6 +584,54 @@ function BiddingPanel({
         </div>
       )}
 
+      {actionError && room.match?.phase === "bidding" && (
+        <p className="action-error" role="alert">
+          {actionError}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function GroundPanel({
+  actionError,
+  onSubmit,
+  selectedCount,
+  setTrump,
+  trump,
+}: {
+  actionError: string;
+  onSubmit: () => void;
+  selectedCount: number;
+  setTrump: (suit: Card["suit"]) => void;
+  trump: Card["suit"];
+}) {
+  return (
+    <section className="ground-panel" aria-label="Ground and trump">
+      <div>
+        <strong>Prepare the hand</strong>
+        <p>Select exactly four cards to discard face down.</p>
+      </div>
+      <label>
+        Trump suit
+        <select
+          onChange={(event) => setTrump(event.target.value as Card["suit"])}
+          value={trump}
+        >
+          <option value="clubs">♣ Clubs</option>
+          <option value="diamonds">♦ Diamonds</option>
+          <option value="hearts">♥ Hearts</option>
+          <option value="spades">♠ Spades</option>
+        </select>
+      </label>
+      <button
+        className="primary ground-submit"
+        disabled={selectedCount !== 4}
+        onClick={onSubmit}
+        type="button"
+      >
+        Discard {selectedCount}/4 and declare
+      </button>
       {actionError && (
         <p className="action-error" role="alert">
           {actionError}
@@ -526,7 +641,17 @@ function BiddingPanel({
   );
 }
 
-function Hand({ cards }: { cards: Card[] }) {
+function Hand({
+  cards,
+  onToggle,
+  selectable = false,
+  selectedIds = [],
+}: {
+  cards: Card[];
+  onToggle?: (cardId: string) => void;
+  selectable?: boolean;
+  selectedIds?: string[];
+}) {
   const suitSymbols: Record<Card["suit"], string> = {
     clubs: "♣",
     diamonds: "♦",
@@ -568,18 +693,33 @@ function Hand({ cards }: { cards: Card[] }) {
       </div>
       <div className="hand-cards">
         {sortedCards.map((card) => (
-          <div
-            className={`playing-card is-${card.suit}`}
-            key={`${card.rank}-${card.suit}`}
+          <button
+            className={`playing-card is-${card.suit} ${
+              selectedIds.includes(card.id) ? "is-selected" : ""
+            }`}
+            disabled={!selectable}
+            key={card.id}
             aria-label={`${card.rank} of ${card.suit}`}
+            onClick={() => onToggle?.(card.id)}
+            type="button"
           >
             <strong>{card.rank}</strong>
             <span>{suitSymbols[card.suit]}</span>
-          </div>
+          </button>
         ))}
       </div>
     </section>
   );
+}
+
+function suitLabel(suit: Card["suit"] | null) {
+  const labels: Record<Card["suit"], string> = {
+    clubs: "Clubs",
+    diamonds: "Diamonds",
+    hearts: "Hearts",
+    spades: "Spades",
+  };
+  return suit ? labels[suit] : "No suit";
 }
 
 function Seat({

@@ -199,7 +199,7 @@ test("starts a four-player hand and deals private cards", async () => {
   );
   assert.equal(allDealtCards.length, 48);
   assert.equal(
-    new Set(allDealtCards.map((card) => `${card.rank}-${card.suit}`)).size,
+    new Set(allDealtCards.map((card) => card.id)).size,
     48,
   );
 
@@ -258,6 +258,53 @@ test("starts a four-player hand and deals private cards", async () => {
   assert.equal(westPass.room.match.bidding.winnerId, "north");
   assert.equal(westPass.room.match.bidding.winningBid, 105);
   assert.equal(westPass.room.match.bidding.currentTurnPlayerId, null);
+
+  const northGround = await waitForMessage(
+    clients[2],
+    (message) => message.room?.match?.phase === "ground",
+  );
+  assert.equal(northGround.room.match.yourHand.length, 16);
+  assert.equal(northGround.room.match.groundCount, 0);
+
+  const wrongPlayer = await command(clients[0], {
+    type: "complete-ground",
+    playerId: "south",
+    discardIds: [],
+    trump: "hearts",
+  });
+  assert.equal(wrongPlayer.code, "not-winning-bidder");
+
+  const invalidDiscard = await command(clients[2], {
+    type: "complete-ground",
+    playerId: "north",
+    discardIds: northGround.room.match.yourHand.slice(0, 3).map((card) => card.id),
+    trump: "hearts",
+  });
+  assert.equal(invalidDiscard.code, "invalid-discard");
+
+  const discardIds = northGround.room.match.yourHand
+    .slice(0, 4)
+    .map((card) => card.id);
+  const completedGround = await command(clients[2], {
+    type: "complete-ground",
+    playerId: "north",
+    discardIds,
+    trump: "hearts",
+  });
+  assert.equal(completedGround.room.match.phase, "playing");
+  assert.equal(completedGround.room.match.yourHand.length, 12);
+  assert.equal(completedGround.room.match.discardCount, 4);
+  assert.equal(completedGround.room.match.trump, "hearts");
+  assert.equal("discarded" in completedGround.room.match, false);
+
+  const eastPlaying = await waitForMessage(
+    clients[3],
+    (message) => message.room?.match?.phase === "playing",
+  );
+  assert.equal(eastPlaying.room.match.yourHand.length, 12);
+  assert.equal(eastPlaying.room.match.discardCount, 4);
+  assert.equal(eastPlaying.room.match.trump, "hearts");
+  assert.equal("discarded" in eastPlaying.room.match, false);
 
   clients.forEach((client) => client.close());
 });

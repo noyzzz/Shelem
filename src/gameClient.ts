@@ -9,6 +9,7 @@ export type Player = {
 };
 
 export type Card = {
+  id: string;
   suit: "clubs" | "diamonds" | "hearts" | "spades";
   rank:
     | "A"
@@ -27,11 +28,13 @@ export type Card = {
 };
 
 export type Match = {
-  phase: "bidding" | "ground";
+  phase: "bidding" | "ground" | "playing";
   handNumber: number;
   dealerPosition: Position;
   firstBidderPosition: Position;
   groundCount: number;
+  discardCount: number;
+  trump: Card["suit"] | null;
   handCounts: Record<string, number>;
   yourHand: Card[];
   bidding: {
@@ -195,6 +198,10 @@ class GameClient {
 
   passBid() {
     return this.request({ type: "pass-bid" });
+  }
+
+  completeGround(discardIds: string[], trump: Card["suit"]) {
+    return this.request({ type: "complete-ground", discardIds, trump });
   }
 
   leaveRoom() {

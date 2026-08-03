@@ -60,6 +60,8 @@ const serializeRoom = (room, viewerId) => ({
           dealerPosition: room.match.dealerPosition,
           firstBidderPosition: room.match.firstBidderPosition,
           groundCount: room.match.ground.length,
+          discardCount: room.match.discarded.length,
+          trump: room.match.trump,
           handCounts: Object.fromEntries(
             [...room.match.hands].map(([playerId, hand]) => [
               playerId,
@@ -103,7 +105,9 @@ const broadcastRoom = (room, requestId, targetSocket) => {
 };
 
 const createDeck = () =>
-  suits.flatMap((suit) => ranks.map((rank) => ({ suit, rank })));
+  suits.flatMap((suit) =>
+    ranks.map((rank) => ({ id: `${rank}-${suit}`, suit, rank })),
+  );
 
 const shuffle = (cards) => {
   for (let index = cards.length - 1; index > 0; index -= 1) {
@@ -139,6 +143,8 @@ const startMatchIfReady = (room) => {
     firstBidderPosition: "west",
     hands,
     ground: deck.slice(48),
+    discarded: [],
+    trump: null,
     bidding: {
       currentBid: 100,
       highBidderId: firstBidder.id,
@@ -160,6 +166,10 @@ const advanceBidTurn = (room, currentPlayerId) => {
     bidding.winnerId = activePlayers[0].id;
     bidding.winningBid = bidding.currentBid;
     bidding.currentTurnPlayerId = null;
+    room.match.hands
+      .get(activePlayers[0].id)
+      .push(...room.match.ground);
+    room.match.ground = [];
     room.match.phase = "ground";
     return;
   }
@@ -396,6 +406,69 @@ webSocketServer.on("connection", (socket) => {
       }
 
       advanceBidTurn(room, playerId);
+      broadcastRoom(room, requestId, socket);
+      return;
+    }
+
+    if (message.type === "complete-ground") {
+      if (!room.match || room.match.phase !== "ground") {
+        sendError(
+          socket,
+          requestId,
+          "ground-closed",
+          "The ground phase is not active.",
+        );
+        return;
+      }
+
+      if (room.match.bidding.winnerId !== playerId) {
+        sendError(
+          socket,
+          requestId,
+          "not-winning-bidder",
+          "Only the winning bidder can discard and declare trump.",
+        );
+        return;
+      }
+
+      const discardIds = Array.isArray(message.discardIds)
+        ? message.discardIds.filter((id) => typeof id === "string")
+        : [];
+      const uniqueDiscardIds = new Set(discardIds);
+      const trump = typeof message.trump === "string" ? message.trump : "";
+      const hand = room.match.hands.get(playerId);
+      if (
+        discardIds.length !== 4 ||
+        uniqueDiscardIds.size !== 4 ||
+        discardIds.some((id) => !hand.some((card) => card.id === id))
+      ) {
+        sendError(
+          socket,
+          requestId,
+          "invalid-discard",
+          "Select exactly four cards from your hand.",
+        );
+        return;
+      }
+      if (!suits.includes(trump)) {
+        sendError(
+          socket,
+          requestId,
+          "invalid-trump",
+          "Choose a valid trump suit.",
+        );
+        return;
+      }
+
+      room.match.discarded = hand.filter((card) =>
+        uniqueDiscardIds.has(card.id),
+      );
+      room.match.hands.set(
+        playerId,
+        hand.filter((card) => !uniqueDiscardIds.has(card.id)),
+      );
+      room.match.trump = trump;
+      room.match.phase = "playing";
       broadcastRoom(room, requestId, socket);
       return;
     }
