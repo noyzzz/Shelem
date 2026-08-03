@@ -400,6 +400,7 @@ function ParticipantVideo({
   const cameraOn = Boolean(
     videoTrack && (participant.isLocal || !publication?.isMuted),
   );
+  const microphoneOn = participant.isMicrophoneEnabled;
 
   return (
     <div className="media-participant">
@@ -428,7 +429,31 @@ function ParticipantVideo({
           />,
           seatVideoRoot,
         )}
+      {seatVideoRoot &&
+        createPortal(
+          <span
+            aria-label={`${name}'s microphone is ${
+              microphoneOn ? "on" : "muted"
+            }`}
+            className={`seat-mic-status ${
+              microphoneOn ? "is-on" : "is-muted"
+            }`}
+            title={microphoneOn ? "Microphone on" : "Microphone muted"}
+          >
+            <MicrophoneIcon muted={!microphoneOn} />
+          </span>,
+          seatVideoRoot,
+        )}
     </div>
+  );
+}
+
+function MicrophoneIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 5.4 1.8M15 9.4V6a3 3 0 0 0-5.8-1.1M17 10v1a5 5 0 0 1-.8 2.7M13.8 15.7A5 5 0 0 1 7 11v-1M12 16v4M9 20h6" />
+      {muted && <path d="M4 4l16 16" />}
+    </svg>
   );
 }
 

@@ -1031,6 +1031,40 @@ h1 {
   transform: scaleX(-1);
 }
 
+.seat-mic-status {
+  width: 18px;
+  height: 18px;
+  position: absolute;
+  z-index: 3;
+  bottom: 1px;
+  left: 1px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #071610;
+  border-radius: 50%;
+  background: #263b33;
+  box-shadow: 0 2px 7px rgb(0 0 0 / 38%);
+}
+
+.seat-mic-status svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+.seat-mic-status.is-on {
+  color: #10271c;
+  background: #8bd1a3;
+}
+
+.seat-mic-status.is-muted {
+  color: #a8b4ae;
+}
+
 .avatar.team-one {
   color: #e9c774;
   background: rgb(233 199 116 / 8%);
