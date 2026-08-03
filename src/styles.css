@@ -1936,6 +1936,119 @@ h1 {
   .ready-button {
     width: 100%;
   }
+
+  .is-match-active .lobby-header {
+    min-height: 60px;
+  }
+
+  .is-match-active .lobby-content {
+    padding-top: 68px;
+    padding-bottom: 14px;
+  }
+
+  .is-match-active .lobby-title {
+    display: none;
+  }
+
+  .is-match-active .turn-banner {
+    min-height: 52px;
+    margin-top: 0;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .is-match-active .turn-banner strong {
+    font-size: 14px;
+  }
+
+  .is-match-active .turn-banner p {
+    width: auto;
+    max-width: 42%;
+    margin: 0 0 0 auto;
+    font-size: 10px;
+    text-align: right;
+  }
+
+  .is-match-active .media-room {
+    margin-top: 7px;
+    padding: 8px;
+  }
+
+  .is-match-active .media-room-heading {
+    align-items: center;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .is-match-active .media-room-heading small,
+  .is-match-active .media-participants {
+    display: none;
+  }
+
+  .is-match-active .media-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .is-match-active .media-controls button {
+    min-height: 30px;
+    padding-inline: 8px;
+    font-size: 10px;
+  }
+
+  .is-match-active .table-wrap {
+    height: 340px;
+    margin-top: 8px;
+  }
+
+  .is-match-active .hand-panel {
+    margin-top: 7px;
+    padding-top: 9px;
+    padding-bottom: 7px;
+  }
+
+  .is-match-active .hand-heading {
+    margin-bottom: 6px;
+  }
+
+  .is-match-active .hand-cards {
+    min-height: 100px;
+    padding-bottom: 8px;
+  }
+
+  .is-match-active .bidding-panel,
+  .is-match-active .ground-panel,
+  .is-match-active .ground-reveal-panel,
+  .is-match-active .play-panel {
+    margin-top: 7px;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .is-match-active .bidding-summary {
+    align-items: center;
+    flex-direction: row;
+    gap: 10px;
+  }
+
+  .is-match-active .bidding-summary strong {
+    font-size: 22px;
+  }
+
+  .is-match-active .lobby-footer {
+    min-height: 36px;
+    margin-top: 7px;
+    flex-direction: row;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .is-match-active .connection-note {
+    display: none;
+  }
 }
 
 @media (max-width: 360px) {

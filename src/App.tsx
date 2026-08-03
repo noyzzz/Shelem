@@ -323,7 +323,9 @@ export function App() {
 
   if (screen === "lobby") {
     return (
-      <main className="lobby-shell">
+      <main
+        className={`lobby-shell ${room?.match ? "is-match-active" : ""}`}
+      >
         <header className="lobby-header">
           <Logo />
           <div className="room-actions">
@@ -548,7 +550,7 @@ export function App() {
               {actionError}
             </p>
           )}
-          {room?.match && room.match.phase !== "match-complete" && (
+          {room?.match?.phase === "bidding" && (
             <BiddingPanel
               actionError={actionError}
               bidAmount={bidAmount}
