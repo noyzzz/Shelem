@@ -15,6 +15,45 @@ type MediaRoomProps = {
   players: Player[];
 };
 
+const CAMERA_DEVICE_KEY = "shelem-camera-device-id";
+
+const getRememberedCamera = () => {
+  try {
+    return window.localStorage.getItem(CAMERA_DEVICE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+};
+
+const rememberCamera = (deviceId: string) => {
+  try {
+    window.localStorage.setItem(CAMERA_DEVICE_KEY, deviceId);
+  } catch {
+    // The selection lasts for this call when persistent storage is unavailable.
+  }
+};
+
+const preferredCamera = (
+  cameras: MediaDeviceInfo[],
+  rememberedDeviceId: string,
+) => {
+  const remembered = cameras.find(
+    (camera) => camera.deviceId === rememberedDeviceId,
+  );
+  if (remembered) return remembered;
+
+  const physicalCameras = cameras.filter(
+    (camera) => !/virtual|obs|manycam|snap camera/i.test(camera.label),
+  );
+  return (
+    physicalCameras.find((camera) =>
+      /front|facetime|integrated|built-in|webcam/i.test(camera.label),
+    ) ??
+    physicalCameras[0] ??
+    cameras[0]
+  );
+};
+
 export function MediaRoom({ players }: MediaRoomProps) {
   const roomRef = useRef<Room | null>(null);
   const audioRootRef = useRef<HTMLDivElement | null>(null);
@@ -26,8 +65,28 @@ export function MediaRoom({ players }: MediaRoomProps) {
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [localCameraTrack, setLocalCameraTrack] =
     useState<VideoTrack | null>(null);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraId, setSelectedCameraId] =
+    useState(getRememberedCamera);
   const [cameraPending, setCameraPending] = useState(false);
   const [error, setError] = useState("");
+
+  const refreshCameras = async (requestPermissions = false) => {
+    const availableCameras = await Room.getLocalDevices(
+      "videoinput",
+      requestPermissions,
+    );
+    setCameras(availableCameras);
+    const selected = preferredCamera(
+      availableCameras,
+      selectedCameraId || getRememberedCamera(),
+    );
+    if (selected) {
+      setSelectedCameraId(selected.deviceId);
+      rememberCamera(selected.deviceId);
+    }
+    return { availableCameras, selected };
+  };
 
   const syncRoom = (room: Room) => {
     const cameraPublication = room.localParticipant.getTrackPublication(
@@ -98,6 +157,15 @@ export function MediaRoom({ players }: MediaRoomProps) {
         .on(RoomEvent.TrackUnmuted, sync)
         .on(RoomEvent.TrackStreamStateChanged, sync)
         .on(RoomEvent.Reconnected, sync)
+        .on(RoomEvent.MediaDevicesChanged, () => {
+          void refreshCameras(false);
+        })
+        .on(RoomEvent.ActiveDeviceChanged, (kind, deviceId) => {
+          if (kind === "videoinput") {
+            setSelectedCameraId(deviceId);
+            rememberCamera(deviceId);
+          }
+        })
         .on(RoomEvent.MediaDevicesError, (deviceError: Error) => {
           setError(mediaDeviceError(deviceError, "camera or microphone"));
           sync();
@@ -127,6 +195,7 @@ export function MediaRoom({ players }: MediaRoomProps) {
       await room.connect(credentials.url, credentials.token, {
         peerConnectionTimeout: 15_000,
       });
+      await refreshCameras(false);
       syncRoom(room);
     } catch (caught) {
       await leaveMedia();
@@ -153,7 +222,47 @@ export function MediaRoom({ players }: MediaRoomProps) {
     setCameraPending(true);
     try {
       const enabling = !room.localParticipant.isCameraEnabled;
-      await room.localParticipant.setCameraEnabled(enabling);
+      if (enabling) {
+        const { availableCameras, selected } = await refreshCameras(true);
+        const camera =
+          availableCameras.find(
+            (candidate) => candidate.deviceId === selectedCameraId,
+          ) ?? selected;
+        if (camera) {
+          await room.switchActiveDevice(
+            "videoinput",
+            camera.deviceId,
+            true,
+          );
+          await room.localParticipant.setCameraEnabled(true, {
+            deviceId: { exact: camera.deviceId },
+          });
+        } else {
+          await room.localParticipant.setCameraEnabled(true, {
+            facingMode: "user",
+          });
+        }
+      } else {
+        await room.localParticipant.setCameraEnabled(false);
+      }
+      syncRoom(room);
+    } catch (caught) {
+      setError(mediaDeviceError(caught, "camera"));
+    } finally {
+      setCameraPending(false);
+    }
+  };
+
+  const changeCamera = async (deviceId: string) => {
+    const room = roomRef.current;
+    setSelectedCameraId(deviceId);
+    rememberCamera(deviceId);
+    if (!room || cameraPending) return;
+
+    setError("");
+    setCameraPending(true);
+    try {
+      await room.switchActiveDevice("videoinput", deviceId, true);
       syncRoom(room);
     } catch (caught) {
       setError(mediaDeviceError(caught, "camera"));
@@ -213,6 +322,25 @@ export function MediaRoom({ players }: MediaRoomProps) {
                     ? "Camera on"
                     : "Camera off"}
               </button>
+              {cameras.length > 1 && (
+                <label className="media-camera-picker">
+                  <span>Camera</span>
+                  <select
+                    aria-label="Camera"
+                    disabled={cameraPending}
+                    onChange={(event) => {
+                      void changeCamera(event.target.value);
+                    }}
+                    value={selectedCameraId}
+                  >
+                    {cameras.map((camera, index) => (
+                      <option key={camera.deviceId} value={camera.deviceId}>
+                        {camera.label || `Camera ${index + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <button className="media-leave" onClick={leaveMedia} type="button">
                 Leave call
               </button>

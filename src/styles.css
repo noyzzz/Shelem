@@ -526,10 +526,12 @@ h1 {
 
 .media-controls {
   display: flex;
+  align-items: center;
   gap: 7px;
 }
 
-.media-controls button {
+.media-controls button,
+.media-camera-picker select {
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid rgb(255 255 255 / 11%);
@@ -538,6 +540,24 @@ h1 {
   background: rgb(255 255 255 / 4%);
   cursor: pointer;
   font-size: 11px;
+}
+
+.media-camera-picker {
+  display: grid;
+  gap: 2px;
+  color: #789086;
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.media-camera-picker select {
+  max-width: 180px;
+  outline: none;
+  color: #d8eee5;
+  background: #10291e;
+  cursor: pointer;
+  text-transform: none;
 }
 
 .media-controls button:hover:not(:disabled) {
@@ -1703,6 +1723,15 @@ h1 {
     grid-template-columns: repeat(3, 1fr);
   }
 
+  .media-camera-picker {
+    grid-column: 1 / -1;
+  }
+
+  .media-camera-picker select {
+    width: 100%;
+    max-width: none;
+  }
+
   .media-controls .media-join {
     grid-column: 1 / -1;
   }
@@ -1996,6 +2025,18 @@ h1 {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
+  }
+
+  .is-match-active .media-camera-picker {
+    grid-column: auto;
+  }
+
+  .is-match-active .media-camera-picker select {
+    width: auto;
+    max-width: 130px;
+    min-height: 30px;
+    padding-inline: 7px;
+    font-size: 10px;
   }
 
   .is-match-active .media-controls button {
