@@ -196,7 +196,22 @@ test("creates, validates, synchronizes, and cleans up rooms", async () => {
   );
   assert.equal((await hostSawJoin).room.players.length, 2);
 
-  const occupiedSeat = await command(guest, {
+  const reconnectingGuest = await connect();
+  const hostSawReconnect = nextMessage(host);
+  const rejoined = await command(reconnectingGuest, {
+    type: "join-room",
+    playerId: "guest",
+    name: "Guest",
+    code: created.room.code,
+  });
+  assert.equal(rejoined.room.players.length, 2);
+  assert.equal(
+    rejoined.room.players.filter((player) => player.id === "guest").length,
+    1,
+  );
+  assert.equal((await hostSawReconnect).room.players.length, 2);
+
+  const occupiedSeat = await command(reconnectingGuest, {
     type: "change-seat",
     playerId: "guest",
     position: "east",
@@ -204,14 +219,14 @@ test("creates, validates, synchronizes, and cleans up rooms", async () => {
   assert.equal(occupiedSeat.type, "error");
   assert.equal(occupiedSeat.code, "seat-occupied");
 
-  const rejectedBotManagement = await command(guest, {
+  const rejectedBotManagement = await command(reconnectingGuest, {
     type: "fill-with-bots",
     playerId: "guest",
   });
   assert.equal(rejectedBotManagement.code, "host-only");
 
   const hostSawReady = nextMessage(host);
-  await command(guest, {
+  await command(reconnectingGuest, {
     type: "set-ready",
     playerId: "guest",
     ready: true,
@@ -223,7 +238,7 @@ test("creates, validates, synchronizes, and cleans up rooms", async () => {
   );
 
   const hostSawDisconnect = nextMessage(host);
-  guest.close();
+  reconnectingGuest.close();
   const disconnectedState = await hostSawDisconnect;
   assert.equal(
     disconnectedState.room.players.find((player) => player.id === "guest")

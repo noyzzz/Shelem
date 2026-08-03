@@ -126,20 +126,57 @@ type MediaPendingRequest = {
   reject: (error: Error) => void;
 };
 
+const PLAYER_ID_KEY = "shelem-player-id";
+const ROOM_MEMBERSHIP_KEY = "shelem-room-membership";
+
+const readPersistentValue = (key: string) => {
+  try {
+    const persistentValue = window.localStorage.getItem(key);
+    if (persistentValue) return persistentValue;
+
+    const sessionValue = window.sessionStorage.getItem(key);
+    if (sessionValue) {
+      window.localStorage.setItem(key, sessionValue);
+      window.sessionStorage.removeItem(key);
+    }
+    return sessionValue;
+  } catch {
+    return window.sessionStorage.getItem(key);
+  }
+};
+
+const writePersistentValue = (key: string, value: string) => {
+  try {
+    window.localStorage.setItem(key, value);
+    window.sessionStorage.removeItem(key);
+  } catch {
+    window.sessionStorage.setItem(key, value);
+  }
+};
+
+const removePersistentValue = (key: string) => {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Fall back to session storage when persistent storage is unavailable.
+  }
+  window.sessionStorage.removeItem(key);
+};
+
 const getPlayerId = () => {
-  const existing = window.sessionStorage.getItem("shelem-player-id");
+  const existing = readPersistentValue(PLAYER_ID_KEY);
   if (existing) return existing;
 
   const created =
     window.crypto.randomUUID?.() ??
     `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  window.sessionStorage.setItem("shelem-player-id", created);
+  writePersistentValue(PLAYER_ID_KEY, created);
   return created;
 };
 
 const getRememberedRoom = () => {
   try {
-    const stored = window.sessionStorage.getItem("shelem-room-membership");
+    const stored = readPersistentValue(ROOM_MEMBERSHIP_KEY);
     return stored
       ? (JSON.parse(stored) as { code: string; name: string })
       : null;
@@ -159,8 +196,16 @@ class GameClient {
   private mediaPending = new Map<string, MediaPendingRequest>();
   private status: ConnectionStatus = "disconnected";
   private lastJoin = getRememberedRoom();
+  private preferredRoomCode: string | null = null;
 
-  connect() {
+  get rememberedName() {
+    return this.lastJoin?.name ?? "";
+  }
+
+  connect(preferredRoomCode?: string) {
+    if (preferredRoomCode) {
+      this.preferredRoomCode = preferredRoomCode;
+    }
     if (
       this.socket?.readyState === WebSocket.OPEN ||
       this.socket?.readyState === WebSocket.CONNECTING
@@ -175,14 +220,18 @@ class GameClient {
 
     this.socket.addEventListener("open", () => {
       this.setStatus("connected");
-      if (this.lastJoin) {
+      if (
+        this.lastJoin &&
+        (!this.preferredRoomCode ||
+          this.lastJoin.code === this.preferredRoomCode)
+      ) {
         void this.request({
           type: "join-room",
           code: this.lastJoin.code,
           name: this.lastJoin.name,
         }).catch(() => {
           this.lastJoin = null;
-          window.sessionStorage.removeItem("shelem-room-membership");
+          removePersistentValue(ROOM_MEMBERSHIP_KEY);
           this.roomListeners.forEach((listener) => listener(null));
         });
       }
@@ -309,7 +358,8 @@ class GameClient {
 
   leaveRoom() {
     this.lastJoin = null;
-    window.sessionStorage.removeItem("shelem-room-membership");
+    this.preferredRoomCode = null;
+    removePersistentValue(ROOM_MEMBERSHIP_KEY);
     return this.request({ type: "leave-room" });
   }
 
@@ -339,10 +389,8 @@ class GameClient {
 
   private rememberRoom(code: string, name: string) {
     this.lastJoin = { code, name };
-    window.sessionStorage.setItem(
-      "shelem-room-membership",
-      JSON.stringify(this.lastJoin),
-    );
+    this.preferredRoomCode = code;
+    writePersistentValue(ROOM_MEMBERSHIP_KEY, JSON.stringify(this.lastJoin));
   }
 }
 

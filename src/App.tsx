@@ -33,8 +33,18 @@ const positions: Position[] = ["south", "north", "west", "east"];
 const cleanRoomCode = (value: string) =>
   value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
 
-const getInviteCode = () =>
-  cleanRoomCode(new URLSearchParams(window.location.search).get("room") ?? "");
+const getInviteCode = () => {
+  const pathMatch = window.location.pathname.match(
+    /\/join\/([A-Z0-9]{6})(?:\/|$)/i,
+  );
+  if (pathMatch) return cleanRoomCode(pathMatch[1]);
+
+  return cleanRoomCode(
+    new URLSearchParams(window.location.search).get("room") ?? "",
+  );
+};
+
+const invitePath = (roomCode: string) => `/join/${roomCode}`;
 
 type PlayingCardComponent = ComponentType<
   SVGProps<SVGSVGElement> & { title?: string }
@@ -94,7 +104,7 @@ export function App() {
   const [flow, setFlow] = useState<Flow>(
     inviteCode.length === 6 ? "join" : "create",
   );
-  const [name, setName] = useState("");
+  const [name, setName] = useState(gameClient.rememberedName);
   const [roomInput, setRoomInput] = useState(inviteCode);
   const [roomCode, setRoomCode] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
@@ -118,7 +128,7 @@ export function App() {
   const turnContext = getTurnContext(room);
 
   useEffect(() => {
-    gameClient.connect();
+    gameClient.connect(inviteCode || undefined);
     const unsubscribeRoom = gameClient.subscribeToRoom((nextRoom) => {
       if (!nextRoom) {
         setRoom(null);
@@ -129,6 +139,7 @@ export function App() {
       }
       setRoom(nextRoom);
       setRoomCode(nextRoom.code);
+      window.history.replaceState({}, "", invitePath(nextRoom.code));
       if (
         nextRoom.players.some((player) => player.id === gameClient.playerId)
       ) {
@@ -179,6 +190,7 @@ export function App() {
       setRoom(nextRoom);
       setRoomCode(nextRoom.code);
       setName(cleanName);
+      window.history.replaceState({}, "", invitePath(nextRoom.code));
       setFormError("");
       setScreen("lobby");
     } catch (error) {
@@ -194,7 +206,7 @@ export function App() {
     } catch {
       // Return home even if the server connection dropped.
     }
-    window.history.replaceState({}, "", window.location.pathname);
+    window.history.replaceState({}, "", "/");
     setRoom(null);
     setRoomCode("");
     setScreen("home");
@@ -317,7 +329,7 @@ export function App() {
   const playableCardIds = getPlayableCardIds(room);
 
   const copyInvite = async () => {
-    const invite = `${window.location.origin}?room=${roomCode}`;
+    const invite = `${window.location.origin}${invitePath(roomCode)}`;
     await navigator.clipboard?.writeText(invite);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
@@ -706,7 +718,7 @@ export function App() {
             className="back-button"
             onClick={() => {
               setFormError("");
-              window.history.replaceState({}, "", window.location.pathname);
+              window.history.replaceState({}, "", "/");
               setScreen("home");
             }}
             type="button"
