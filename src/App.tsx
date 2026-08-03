@@ -28,6 +28,10 @@ type TurnContext = {
   action: string;
   seatLabel: string;
 };
+type BiddingStatus = {
+  label: string;
+  passed: boolean;
+};
 
 const positionsClockwise: Position[] = ["south", "west", "north", "east"];
 const cleanRoomCode = (value: string) =>
@@ -460,6 +464,11 @@ export function App() {
                   turn={
                     player && turnContext && player.id === turnContext.playerId
                       ? turnContext
+                      : undefined
+                  }
+                  biddingStatus={
+                    player && room?.match?.phase === "bidding"
+                      ? getPlayerBiddingStatus(room, player.id)
                       : undefined
                   }
                 />
@@ -1308,6 +1317,7 @@ function TurnBanner({ room, turn }: { room: Room; turn: TurnContext }) {
 }
 
 function Seat({
+  biddingStatus,
   displayPosition,
   onSelect,
   position,
@@ -1315,6 +1325,7 @@ function Seat({
   player,
   turn,
 }: {
+  biddingStatus?: BiddingStatus;
   displayPosition: Position;
   onSelect?: (position: Position) => void;
   position: Position;
@@ -1351,6 +1362,15 @@ function Seat({
         </button>
       )}
       <strong>{player?.name || "Open seat"}</strong>
+      {biddingStatus && (
+        <span
+          className={`seat-bid-status ${
+            biddingStatus.passed ? "has-passed" : ""
+          }`}
+        >
+          {biddingStatus.label}
+        </span>
+      )}
       {turn && (
         <span className="seat-turn-label">
           {isYou ? "Your turn" : turn.seatLabel}
@@ -1373,6 +1393,32 @@ function Seat({
       </small>
     </div>
   );
+}
+
+function getPlayerBiddingStatus(
+  room: Room,
+  playerId: string,
+): BiddingStatus {
+  const history = room.match?.bidding.history ?? [];
+  const actions = history.filter((action) => action.playerId === playerId);
+  const latestBid = [...actions]
+    .reverse()
+    .find((action): action is { playerId: string; amount: number } =>
+      "amount" in action,
+    );
+  const passed = room.match?.bidding.passedPlayerIds.includes(playerId) ?? false;
+
+  if (passed) {
+    return {
+      label: latestBid ? `Passed · last bid ${latestBid.amount}` : "Passed",
+      passed: true,
+    };
+  }
+
+  return {
+    label: latestBid ? `Bid ${latestBid.amount}` : "No bid yet",
+    passed: false,
+  };
 }
 
 function ArrowIcon() {

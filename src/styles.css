@@ -1034,6 +1034,29 @@ h1 {
   text-transform: uppercase;
 }
 
+.seat-bid-status {
+  max-width: 145px;
+  margin-top: 5px;
+  padding: 3px 8px;
+  overflow: hidden;
+  border: 1px solid rgb(239 201 120 / 28%);
+  border-radius: 999px;
+  color: #f3d894;
+  background: rgb(239 201 120 / 10%);
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat-bid-status.has-passed {
+  border-color: rgb(255 255 255 / 12%);
+  color: #8da197;
+  background: rgb(255 255 255 / 5%);
+}
+
 .seat.is-your-turn .seat-turn-label {
   background: #efc978;
 }
