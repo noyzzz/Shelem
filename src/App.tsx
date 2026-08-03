@@ -364,16 +364,17 @@ export function App() {
     }
   };
 
-  const selectPlayCard = (cardId: string) => {
-    setSelectedPlayCardId(cardId);
-    setActionError("");
-  };
+  const selectOrPlayCard = async (cardId: string) => {
+    if (playPending) return;
+    if (selectedPlayCardId !== cardId) {
+      setSelectedPlayCardId(cardId);
+      setActionError("");
+      return;
+    }
 
-  const confirmPlayCard = async () => {
-    if (!selectedPlayCardId || playPending) return;
     setPlayPending(true);
     try {
-      await gameClient.playCard(selectedPlayCardId);
+      await gameClient.playCard(cardId);
       setSelectedPlayCardId(null);
       setActionError("");
     } catch (error) {
@@ -646,7 +647,7 @@ export function App() {
               }
               onToggle={
                 room.match.phase === "playing"
-                  ? selectPlayCard
+                  ? selectOrPlayCard
                   : toggleDiscard
               }
               selectable={
@@ -666,22 +667,17 @@ export function App() {
           )}
           {room?.match?.phase === "playing" &&
             room.match.play?.currentTurnPlayerId === gameClient.playerId && (
-              <PlayCardConfirmation
-                card={
-                  room.match.yourHand.find(
-                    (card) => card.id === selectedPlayCardId,
-                  ) ?? null
-                }
-                canConfirm={
-                  selectedPlayCardId !== null &&
-                  playableCardIds.includes(selectedPlayCardId)
-                }
-                error={actionError}
-                onCancel={() => setSelectedPlayCardId(null)}
-                onConfirm={confirmPlayCard}
-                pending={playPending}
-              />
+              <p className="play-selection-hint">
+                {selectedPlayCardId
+                  ? "Tap the selected card again to play it."
+                  : "Tap a card once to preview it."}
+              </p>
             )}
+          {room?.match?.phase === "playing" && actionError && (
+            <p className="table-action-error action-error" role="alert">
+              {actionError}
+            </p>
+          )}
           {room?.match?.phase === "bidding" && (
             <BiddingPanel
               actionError={actionError}
@@ -1060,62 +1056,6 @@ function GroundPanel({
       {actionError && (
         <p className="action-error" role="alert">
           {actionError}
-        </p>
-      )}
-    </section>
-  );
-}
-
-function PlayCardConfirmation({
-  canConfirm,
-  card,
-  error,
-  onCancel,
-  onConfirm,
-  pending,
-}: {
-  canConfirm: boolean;
-  card: Card | null;
-  error: string;
-  onCancel: () => void;
-  onConfirm: () => void;
-  pending: boolean;
-}) {
-  return (
-    <section className="play-confirmation" aria-label="Confirm card play">
-      <div>
-        <strong>
-          {card
-            ? `${card.rank} of ${suitLabel(card.suit)} selected`
-            : "Choose a card from your hand"}
-        </strong>
-        <small>
-          {card
-            ? "It will not be played until you confirm."
-            : "Tap a highlighted card to preview it first."}
-        </small>
-      </div>
-      <div className="play-confirmation-actions">
-        <button
-          className="play-cancel"
-          disabled={!card || pending}
-          onClick={onCancel}
-          type="button"
-        >
-          Cancel
-        </button>
-        <button
-          className="play-confirm"
-          disabled={!canConfirm || pending}
-          onClick={onConfirm}
-          type="button"
-        >
-          {pending ? "Playing…" : "Play card"}
-        </button>
-      </div>
-      {error && (
-        <p className="action-error" role="alert">
-          {error}
         </p>
       )}
     </section>

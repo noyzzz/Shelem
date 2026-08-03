@@ -117,7 +117,7 @@ before(async () => {
       BOT_ACTION_DELAY_MS: "1",
       GROUND_REVEAL_MS: "5",
       TRICK_DISPLAY_MS: "5",
-      TRICK_ACK_WAIT_MS: "50",
+      TRICK_ACK_WAIT_MS: "500",
       LIVEKIT_API_KEY: "devkey",
       LIVEKIT_API_SECRET: "secret",
       LIVEKIT_URL: "ws://127.0.0.1:7880",
