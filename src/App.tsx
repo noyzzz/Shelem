@@ -56,6 +56,8 @@ export function App() {
     (player) => player.id === gameClient.playerId,
   );
   const hasBots = room?.players.some((player) => player.isBot) ?? false;
+  const isGroundWinner =
+    room?.match?.bidding.winnerId === gameClient.playerId;
   const turnContext = getTurnContext(room);
 
   useEffect(() => {
@@ -284,7 +286,9 @@ export function App() {
                 : room?.match?.phase === "playing"
                 ? "Trump is declared."
                 : room?.match?.phase === "ground-reveal"
-                ? "The zamin is revealed."
+                ? isGroundWinner
+                  ? "Your zamin is revealed."
+                  : "The bidder is viewing the zamin."
                 : room?.match?.phase === "ground"
                 ? "The bid is won."
                 : room?.match
@@ -299,7 +303,9 @@ export function App() {
                       "one",
                   )} wins by forfeit.`
                 : room?.match?.phase === "ground-reveal"
-                ? "Everyone can see the four zamin cards before the bidder takes them."
+                ? isGroundWinner
+                  ? "Only you can see these four cards before they enter your hand."
+                  : "The four cards remain hidden while the winning bidder reviews them."
                 : room?.match?.phase === "ground"
                 ? "The winning bidder will discard four cards before leading."
                 : room?.match?.phase === "hand-results"
@@ -376,7 +382,9 @@ export function App() {
                           (room.match.play?.completedTrickCount ?? 0) + 1
                         } of 12`
                     : room.match.phase === "ground-reveal"
-                    ? "The four zamin cards are revealed"
+                    ? isGroundWinner
+                      ? "Your four zamin cards are revealed"
+                      : "The zamin is hidden"
                     : room.match.phase === "ground"
                     ? `${
                         room.players.find(
@@ -405,7 +413,9 @@ export function App() {
                     ? `${suitLabel(room.match.trump)} is trump`
                     : "The opening card will establish trump"
                   : room?.match?.phase === "ground-reveal"
-                  ? "The bidder will receive them in a moment"
+                  ? isGroundWinner
+                    ? "These cards will enter your hand in a moment"
+                    : "Waiting for the bidder to review their cards"
                   : room?.match?.phase === "ground"
                     ? "The winning bidder now holds the four zamin cards"
                   : room?.match
@@ -416,7 +426,8 @@ export function App() {
             </div>
           </div>
 
-          {room?.match?.phase === "ground-reveal" && (
+          {room?.match?.phase === "ground-reveal" &&
+            room.match.groundCards.length > 0 && (
             <GroundRevealPanel cards={room.match.groundCards} />
           )}
 
@@ -490,7 +501,9 @@ export function App() {
                 {room.match.phase === "match-complete"
                   ? "Match complete"
                   : room.match.phase === "ground-reveal"
-                  ? "Showing everyone the zamin"
+                  ? isGroundWinner
+                    ? "Review your private zamin"
+                    : "Waiting for the bidder"
                   : room.match.phase === "ground"
                   ? room.match.bidding.winnerId === gameClient.playerId
                     ? "Choose four cards to discard"
@@ -763,9 +776,9 @@ function GroundRevealPanel({ cards }: { cards: Card[] }) {
   return (
     <section className="ground-reveal-panel" aria-label="Revealed zamin">
       <div>
-        <span>Zamin revealed</span>
-        <strong>Everyone sees these cards</strong>
-        <p>The winning bidder will receive them shortly.</p>
+        <span>Private zamin</span>
+        <strong>Only you can see these cards</strong>
+        <p>They will enter your hand shortly.</p>
       </div>
       <div className="ground-reveal-cards">
         {cards.map((card) => (

@@ -412,7 +412,13 @@ test("starts a four-player hand and deals private cards", async () => {
   assert.equal(westPass.room.match.bidding.winningBid, 105);
   assert.equal(westPass.room.match.bidding.currentTurnPlayerId, null);
   assert.equal(westPass.room.match.groundCount, 4);
-  assert.equal(westPass.room.match.groundCards.length, 4);
+  assert.deepEqual(westPass.room.match.groundCards, []);
+
+  const northReveal = await waitForMessage(
+    clients[2],
+    (message) => message.room?.match?.phase === "ground-reveal",
+  );
+  assert.equal(northReveal.room.match.groundCards.length, 4);
 
   const northGround = await waitForMessage(
     clients[2],

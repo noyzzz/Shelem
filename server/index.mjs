@@ -71,7 +71,8 @@ const serializeRoom = (room, viewerId) => ({
           firstBidderPosition: room.match.firstBidderPosition,
           groundCount: room.match.ground.length,
           groundCards:
-            room.match.phase === "ground-reveal"
+            room.match.phase === "ground-reveal" &&
+            room.match.bidding.winnerId === viewerId
               ? room.match.ground
               : [],
           discardCount: room.match.discarded.length,

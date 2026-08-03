@@ -46,8 +46,9 @@ There are 165 available points in every hand.
 
 ## Ground and trump
 
-- After bidding ends, the four ground cards are revealed to every player.
-- The reveal remains visible briefly before play continues.
+- After bidding ends, the four ground cards are revealed only to the winning
+  bidder.
+- Other players wait during the reveal but cannot see the ground cards.
 - The winning bidder takes the four ground cards into their hand.
 - The bidder discards any four cards face down.
 - The discarded cards count toward the bidder's team's captured points.
