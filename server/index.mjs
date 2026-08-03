@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { randomInt } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
+import { calculateHandScore, cardPoints } from "./gameRules.mjs";
 
 const port = Number(process.env.PORT ?? 3001);
 const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 60_000);
@@ -9,6 +10,9 @@ const positions = ["south", "west", "north", "east"];
 const suits = ["clubs", "diamonds", "hearts", "spades"];
 const ranks = ["A", "K", "Q", "J", "10", "9", "8", "7", "6", "5", "4", "3", "2"];
 const rooms = new Map();
+
+const teamForPosition = (position) =>
+  position === "north" || position === "south" ? "one" : "two";
 
 const httpServer = createServer((request, response) => {
   if (request.url === "/health") {
@@ -48,6 +52,8 @@ const createRoomCode = () => {
 
 const serializeRoom = (room, viewerId) => ({
   code: room.code,
+  score: room.score,
+  matchWinnerTeam: room.matchWinnerTeam,
   players: [...room.players.values()].map(
     ({ disconnectTimer: _disconnectTimer, socket: _socket, ...player }) =>
       player,
@@ -94,6 +100,7 @@ const serializeRoom = (room, viewerId) => ({
                 ),
               }
             : null,
+          result: room.match.result,
         },
       }
     : {}),
@@ -229,6 +236,55 @@ const determineTrickWinner = (trick, trump) => {
   ).playerId;
 };
 
+const scoreCompletedHand = (room) => {
+  const match = room.match;
+  const biddingPlayer = room.players.get(match.bidding.winnerId);
+  const biddingTeam = teamForPosition(biddingPlayer.position);
+  const rawPoints = { one: 0, two: 0 };
+
+  for (const trick of match.play.completedTricks) {
+    const winner = room.players.get(trick.winnerId);
+    const team = teamForPosition(winner.position);
+    rawPoints[team] +=
+      5 +
+      trick.cards.reduce(
+        (total, { card }) => total + cardPoints(card),
+        0,
+      );
+  }
+
+  rawPoints[biddingTeam] +=
+    5 +
+    match.discarded.reduce(
+      (total, card) => total + cardPoints(card),
+      0,
+    );
+
+  const result = calculateHandScore({
+    rawPoints,
+    biddingTeam,
+    bid: match.bidding.winningBid,
+  });
+
+  room.score.one += result.scoreDelta.one;
+  room.score.two += result.scoreDelta.two;
+  const teamsAtTarget = ["one", "two"].filter(
+    (team) => room.score[team] >= 1_000,
+  );
+  if (teamsAtTarget.length > 0) {
+    room.matchWinnerTeam = teamsAtTarget.includes(biddingTeam)
+      ? biddingTeam
+      : teamsAtTarget[0];
+  }
+
+  match.result = {
+    ...result,
+    matchScore: { ...room.score },
+    matchWinnerTeam: room.matchWinnerTeam,
+  };
+  match.phase = "hand-results";
+};
+
 const sendError = (socket, requestId, code, message) => {
   send(socket, { type: "error", requestId, code, message });
 };
@@ -299,7 +355,12 @@ webSocketServer.on("connection", (socket) => {
 
       detachSocket(socket, true);
       const code = createRoomCode();
-      const room = { code, players: new Map() };
+      const room = {
+        code,
+        players: new Map(),
+        score: { one: 0, two: 0 },
+        matchWinnerTeam: null,
+      };
       room.players.set(playerId, {
         id: playerId,
         name,
@@ -614,8 +675,8 @@ webSocketServer.on("connection", (socket) => {
         play.lastTrickWinnerId = winnerId;
         play.currentTurnPlayerId = winnerId;
         if (play.completedTricks.length === 12) {
-          room.match.phase = "hand-complete";
           play.currentTurnPlayerId = null;
+          scoreCompletedHand(room);
         }
       } else {
         play.currentTurnPlayerId = nextPlayerClockwise(room, playerId).id;

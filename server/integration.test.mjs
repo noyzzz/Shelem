@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { after, before, test } from "node:test";
 import { WebSocket } from "ws";
+import { calculateHandScore, cardPoints } from "./gameRules.mjs";
 
 const port = 3101;
 const url = `ws://127.0.0.1:${port}/ws`;
@@ -70,6 +71,41 @@ const waitForMessage = async (socket, predicate) => {
     if (predicate(message)) return message;
   }
 };
+
+test("hand scoring covers made bids, missed bids, and Shelem", () => {
+  assert.deepEqual(
+    calculateHandScore({
+      rawPoints: { one: 145, two: 20 },
+      biddingTeam: "one",
+      bid: 140,
+    }),
+    {
+      bid: 140,
+      biddingTeam: "one",
+      defendingTeam: "two",
+      rawPoints: { one: 145, two: 20 },
+      scoreDelta: { one: 145, two: 20 },
+      madeBid: true,
+      shelem: false,
+    },
+  );
+  assert.deepEqual(
+    calculateHandScore({
+      rawPoints: { one: 135, two: 30 },
+      biddingTeam: "one",
+      bid: 140,
+    }).scoreDelta,
+    { one: -140, two: 30 },
+  );
+  assert.deepEqual(
+    calculateHandScore({
+      rawPoints: { one: 0, two: 165 },
+      biddingTeam: "two",
+      bid: 120,
+    }).scoreDelta,
+    { one: -165, two: 165 },
+  );
+});
 
 before(async () => {
   server = spawn(process.execPath, ["server/index.mjs"], {
@@ -285,6 +321,9 @@ test("starts a four-player hand and deals private cards", async () => {
   const discardIds = northGround.room.match.yourHand
     .slice(0, 4)
     .map((card) => card.id);
+  const discardedCards = northGround.room.match.yourHand.filter((card) =>
+    discardIds.includes(card.id),
+  );
   const retainedCards = northGround.room.match.yourHand.filter(
     (card) => !discardIds.includes(card.id),
   );
@@ -347,6 +386,17 @@ test("starts a four-player hand and deals private cards", async () => {
         : winner,
     ).playerId;
   };
+  const teamForPlayerId = (playerId) =>
+    playerId === "north" || playerId === "south" ? "one" : "two";
+  const expectedRawPoints = {
+    one:
+      5 +
+      discardedCards.reduce(
+        (total, card) => total + cardPoints(card),
+        0,
+      ),
+    two: 0,
+  };
 
   let playState = completedGround;
   let followSuitRejectionChecked = false;
@@ -394,15 +444,23 @@ test("starts a four-player hand and deals private cards", async () => {
     );
 
     if (completedTrick) {
+      const winnerId = expectedWinner(completedTrick);
       assert.equal(
         response.room.match.play.lastTrickWinnerId,
-        expectedWinner(completedTrick),
+        winnerId,
       );
+      expectedRawPoints[teamForPlayerId(winnerId)] +=
+        5 +
+        completedTrick.reduce(
+          (total, { card: playedCard }) =>
+            total + cardPoints(playedCard),
+          0,
+        );
     }
     playState = response;
   }
 
-  assert.equal(playState.room.match.phase, "hand-complete");
+  assert.equal(playState.room.match.phase, "hand-results");
   assert.equal(playState.room.match.play.completedTrickCount, 12);
   assert.equal(playState.room.match.play.currentTurnPlayerId, null);
   assert.equal(
@@ -417,6 +475,17 @@ test("starts a four-player hand and deals private cards", async () => {
     0,
   );
   assert.equal(followSuitRejectionChecked, true);
+  assert.equal(expectedRawPoints.one + expectedRawPoints.two, 165);
+  assert.deepEqual(playState.room.match.result.rawPoints, expectedRawPoints);
+  const expectedResult = calculateHandScore({
+    rawPoints: expectedRawPoints,
+    biddingTeam: "one",
+    bid: 105,
+  });
+  assert.deepEqual(playState.room.match.result.scoreDelta, expectedResult.scoreDelta);
+  assert.deepEqual(playState.room.score, expectedResult.scoreDelta);
+  assert.equal(playState.room.match.result.madeBid, expectedResult.madeBid);
+  assert.equal(playState.room.match.result.shelem, expectedResult.shelem);
 
   clients.forEach((client) => client.close());
 });

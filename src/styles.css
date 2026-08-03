@@ -936,6 +936,90 @@ h1 {
   grid-column: 1 / -1;
 }
 
+.result-panel {
+  width: min(920px, 100%);
+  margin: 12px auto 0;
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.result-heading,
+.result-team {
+  min-height: 112px;
+  padding: 17px 18px;
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 3%);
+}
+
+.result-heading {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+}
+
+.result-heading span,
+.result-heading small,
+.result-team small,
+.result-team dt {
+  color: #8ca197;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.result-heading strong {
+  font-family: Georgia, serif;
+  font-size: 18px;
+}
+
+.result-heading small {
+  color: #efc978;
+}
+
+.result-team {
+  display: grid;
+  gap: 14px;
+}
+
+.result-team.is-bidding-team {
+  border-color: rgb(239 201 120 / 42%);
+  background: rgb(239 201 120 / 7%);
+}
+
+.result-team > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.result-team > div > span {
+  font-family: Georgia, serif;
+  font-weight: 700;
+}
+
+.result-team dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.result-team dl div {
+  display: grid;
+  gap: 3px;
+}
+
+.result-team dd {
+  margin: 0;
+  color: #f4d38b;
+  font-family: Georgia, serif;
+  font-size: 18px;
+  font-weight: 700;
+}
+
 .connection-note {
   display: flex;
   align-items: center;
@@ -1071,6 +1155,15 @@ h1 {
 
   .play-panel {
     display: flex;
+  }
+
+  .result-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .result-heading,
+  .result-team {
+    min-height: auto;
   }
 
   .current-trick {

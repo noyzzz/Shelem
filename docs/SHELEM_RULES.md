@@ -67,7 +67,12 @@ At the end of the hand, each team first counts:
 
 - points on captured Aces, 10s, and 5s;
 - five points for each captured trick; and
-- any points contained in the bidder's four discarded cards.
+- any points contained in the bidder's four discarded cards; and
+- five points for the bidder's four-card discard pile as the thirteenth
+  scoring trick.
+
+The twelve played tricks are worth 60 points, the discard pile is worth 5,
+and the scoring cards are worth 100, for a total of 165 points.
 
 The counted points are then applied to the match score:
 

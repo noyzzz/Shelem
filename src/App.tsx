@@ -233,8 +233,8 @@ export function App() {
               {room?.match ? `Hand ${room.match.handNumber}` : "Your private table"}
             </p>
             <h1>
-              {room?.match?.phase === "hand-complete"
-                ? "The hand is complete."
+              {room?.match?.phase === "hand-results"
+                ? "The hand is scored."
                 : room?.match?.phase === "playing"
                 ? "Trump is declared."
                 : room?.match?.phase === "ground"
@@ -246,8 +246,12 @@ export function App() {
             <p>
               {room?.match?.phase === "ground"
                 ? "The winning bidder will take the zamin and declare trump."
-                : room?.match?.phase === "hand-complete"
-                  ? "All twelve tricks are finished. Scoring is next."
+                : room?.match?.phase === "hand-results"
+                  ? room.match.result?.shelem
+                    ? "Shelem! All 165 points went to the bidding team."
+                    : room.match.result?.madeBid
+                      ? "The bidding team made its contract."
+                      : "The bidding team missed its contract."
                 : room?.match?.phase === "playing"
                   ? "The bidder will lead the first trick with a trump card."
                 : room?.match
@@ -285,8 +289,8 @@ export function App() {
               </div>
               <strong>
                 {room?.match
-                  ? room.match.phase === "hand-complete"
-                    ? "All 12 tricks are complete"
+                  ? room.match.phase === "hand-results"
+                    ? `Team One ${room.match.result?.rawPoints.one} · Team Two ${room.match.result?.rawPoints.two}`
                     : room.match.phase === "playing"
                     ? `Trick ${
                         (room.match.play?.completedTrickCount ?? 0) + 1
@@ -308,8 +312,8 @@ export function App() {
                     }`}
               </strong>
               <small>
-                {room?.match?.phase === "hand-complete"
-                  ? `${suitLabel(room.match.trump)} was trump`
+                {room?.match?.phase === "hand-results"
+                  ? `Bid: ${room.match.result?.bid} · ${suitLabel(room.match.trump)} was trump`
                   : room?.match?.phase === "playing"
                   ? `${suitLabel(room.match.trump)} is trump`
                   : room?.match?.phase === "ground"
@@ -321,7 +325,7 @@ export function App() {
             </div>
           </div>
 
-          {room?.match && (
+          {room?.match && room.match.phase !== "hand-results" && (
             <Hand
               cards={room.match.yourHand}
               enabledIds={
@@ -360,8 +364,11 @@ export function App() {
               />
             )}
           {(room?.match?.phase === "playing" ||
-            room?.match?.phase === "hand-complete") && (
+            room?.match?.phase === "hand-results") && (
             <PlayPanel actionError={actionError} room={room} />
+          )}
+          {room?.match?.phase === "hand-results" && (
+            <ResultPanel room={room} />
           )}
 
           <div className="lobby-footer">
@@ -386,8 +393,10 @@ export function App() {
                       gameClient.playerId
                       ? "Your turn to play"
                       : "Trick in progress"
-                    : room.match.phase === "hand-complete"
-                      ? "Ready for scoring"
+                    : room.match.phase === "hand-results"
+                      ? room.matchWinnerTeam
+                        ? "Match complete"
+                        : "Hand scored"
                     : room.match.bidding.currentTurnPlayerId ===
                       gameClient.playerId
                     ? "Your turn to bid"
@@ -701,13 +710,13 @@ function PlayPanel({
     <section className="play-panel" aria-label="Current trick">
       <div className="trick-summary">
         <strong>
-          {room.match?.phase === "hand-complete"
+          {room.match?.phase === "hand-results"
             ? "Twelve tricks complete"
             : `Trick ${play.completedTrickCount + 1}`}
         </strong>
         <span>
-          {room.match?.phase === "hand-complete"
-            ? "Ready to count the hand"
+          {room.match?.phase === "hand-results"
+            ? "Points counted"
             : `${currentPlayer?.name ?? "Next player"} to play`}
         </span>
         {lastWinner && (
@@ -730,7 +739,7 @@ function PlayPanel({
           ))
         ) : (
           <span className="empty-trick">
-            {room.match?.phase === "hand-complete"
+            {room.match?.phase === "hand-results"
               ? "Hand finished"
               : "Waiting for the lead"}
           </span>
@@ -752,6 +761,64 @@ function PlayPanel({
       )}
     </section>
   );
+}
+
+function ResultPanel({ room }: { room: Room }) {
+  const result = room.match?.result;
+  if (!result) return null;
+
+  const outcome = result.shelem
+    ? `${teamLabel(result.biddingTeam)} won Shelem`
+    : result.madeBid
+      ? `${teamLabel(result.biddingTeam)} made the ${result.bid} bid`
+      : `${teamLabel(result.biddingTeam)} missed the ${result.bid} bid`;
+
+  return (
+    <section className="result-panel" aria-label="Hand result">
+      <div className="result-heading">
+        <span>Hand {room.match?.handNumber} result</span>
+        <strong>{outcome}</strong>
+        {room.matchWinnerTeam && (
+          <small>{teamLabel(room.matchWinnerTeam)} wins the match</small>
+        )}
+      </div>
+      {(["one", "two"] as const).map((team) => (
+        <article
+          className={`result-team ${
+            result.biddingTeam === team ? "is-bidding-team" : ""
+          }`}
+          key={team}
+        >
+          <div>
+            <span>{teamLabel(team)}</span>
+            {result.biddingTeam === team && <small>Bidding team</small>}
+          </div>
+          <dl>
+            <div>
+              <dt>Hand</dt>
+              <dd>{result.rawPoints[team]}</dd>
+            </div>
+            <div>
+              <dt>Change</dt>
+              <dd>{formatScoreDelta(result.scoreDelta[team])}</dd>
+            </div>
+            <div>
+              <dt>Match</dt>
+              <dd>{result.matchScore[team]}</dd>
+            </div>
+          </dl>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function teamLabel(team: "one" | "two") {
+  return team === "one" ? "Team One" : "Team Two";
+}
+
+function formatScoreDelta(score: number) {
+  return score > 0 ? `+${score}` : String(score);
 }
 
 function Hand({

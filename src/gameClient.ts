@@ -1,4 +1,5 @@
 export type Position = "north" | "south" | "east" | "west";
+export type Team = "one" | "two";
 
 export type Player = {
   id: string;
@@ -28,7 +29,7 @@ export type Card = {
 };
 
 export type Match = {
-  phase: "bidding" | "ground" | "playing" | "hand-complete";
+  phase: "bidding" | "ground" | "playing" | "hand-results";
   handNumber: number;
   dealerPosition: Position;
   firstBidderPosition: Position;
@@ -56,11 +57,24 @@ export type Match = {
     lastTrickWinnerId: string | null;
     trickWins: Record<string, number>;
   } | null;
+  result?: {
+    bid: number;
+    biddingTeam: Team;
+    defendingTeam: Team;
+    rawPoints: Record<Team, number>;
+    scoreDelta: Record<Team, number>;
+    madeBid: boolean;
+    shelem: boolean;
+    matchScore: Record<Team, number>;
+    matchWinnerTeam: Team | null;
+  };
 };
 
 export type Room = {
   code: string;
   players: Player[];
+  score: Record<Team, number>;
+  matchWinnerTeam: Team | null;
   match?: Match;
 };
 
