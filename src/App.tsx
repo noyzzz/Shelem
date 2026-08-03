@@ -32,6 +32,10 @@ type BiddingStatus = {
   label: string;
   passed: boolean;
 };
+type SeatReadiness = {
+  label: string;
+  ready: boolean;
+};
 
 const positionsClockwise: Position[] = ["south", "west", "north", "east"];
 const cleanRoomCode = (value: string) =>
@@ -456,6 +460,11 @@ export function App() {
                     position === "north" || position === "south" ? "one" : "two"
                   }
                   player={player}
+                  readiness={
+                    player && room
+                      ? getSeatReadiness(room, player.id)
+                      : undefined
+                  }
                   onSelect={
                     !player && !room?.match && !seatChangePending
                       ? changeSeat
@@ -1323,6 +1332,7 @@ function Seat({
   position,
   team,
   player,
+  readiness,
   turn,
 }: {
   biddingStatus?: BiddingStatus;
@@ -1331,6 +1341,7 @@ function Seat({
   position: Position;
   team: "one" | "two";
   player?: Player;
+  readiness?: SeatReadiness;
   turn?: TurnContext;
 }) {
   const isYou = player?.id === gameClient.playerId;
@@ -1349,7 +1360,7 @@ function Seat({
               id={`seat-camera-${player.id}`}
             />
           )}
-          {player?.ready && <span className="ready-check">✓</span>}
+          {readiness?.ready && <span className="ready-check">✓</span>}
         </div>
       ) : (
         <button
@@ -1380,19 +1391,36 @@ function Seat({
         {turn
           ? turn.action
           : player
-          ? player.isBot
-            ? "Bot player"
-            : !player.connected
+          ? !player.connected
             ? "Reconnecting…"
-            : player.ready
-              ? "Ready"
-              : "Not ready"
+            : readiness
+              ? readiness.label
+              : player.isBot
+                ? "Bot player"
+                : "In game"
           : onSelect
             ? "Choose this seat"
             : "Waiting…"}
       </small>
     </div>
   );
+}
+
+function getSeatReadiness(room: Room, playerId: string): SeatReadiness | undefined {
+  if (!room.match) {
+    const ready = room.players.find((player) => player.id === playerId)?.ready ?? false;
+    return { label: ready ? "Ready" : "Not ready", ready };
+  }
+
+  if (room.match.phase === "hand-results") {
+    const ready = room.match.nextHandReadyPlayerIds.includes(playerId);
+    return {
+      label: ready ? "Ready for next hand" : "Not ready for next hand",
+      ready,
+    };
+  }
+
+  return undefined;
 }
 
 function getPlayerBiddingStatus(
