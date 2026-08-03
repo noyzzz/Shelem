@@ -346,9 +346,6 @@ export function App() {
           )}
 
           <div className="table-wrap">
-            <span className="team-tag team-one">Team One</span>
-            <span className="team-tag team-two">Team Two</span>
-
             {positions.map((position) => {
               const player = room?.players.find(
                 (candidate) => candidate.position === position,
@@ -387,7 +384,11 @@ export function App() {
                   ? room.match.phase === "match-complete"
                     ? `${teamLabel(room.matchWinnerTeam ?? "one")} wins`
                     : room.match.phase === "hand-results"
-                    ? `Team One ${room.match.result?.rawPoints.one} · Team Two ${room.match.result?.rawPoints.two}`
+                    ? `${teamLabel("one")} ${
+                        room.match.result?.rawPoints.one
+                      } · ${teamLabel("two")} ${
+                        room.match.result?.rawPoints.two
+                      }`
                     : room.match.phase === "playing"
                     ? room.match.play?.resolvingTrickWinnerId
                       ? `${
@@ -889,8 +890,8 @@ function TableTrick({ room }: { room: Room }) {
         );
       })}
       <div className="table-team-tricks">
-        <span>Team One {teamTricks.one}</span>
-        <span>Team Two {teamTricks.two}</span>
+        <span>{teamLabel("one")} {teamTricks.one}</span>
+        <span>{teamLabel("two")} {teamTricks.two}</span>
       </div>
     </section>
   );
@@ -988,14 +989,15 @@ function ForfeitPanel({ room }: { room: Room }) {
           : "did not reconnect before the grace period ended."}
       </p>
       <div>
-        Final score: Team One {room.score.one} · Team Two {room.score.two}
+        Final score: {teamLabel("one")} {room.score.one} ·{" "}
+        {teamLabel("two")} {room.score.two}
       </div>
     </section>
   );
 }
 
 function teamLabel(team: "one" | "two") {
-  return team === "one" ? "Team One" : "Team Two";
+  return team === "one" ? "North–South" : "East–West";
 }
 
 function formatScoreDelta(score: number) {

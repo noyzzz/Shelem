@@ -997,26 +997,6 @@ h1 {
   text-align: center;
 }
 
-.team-tag {
-  position: absolute;
-  top: 48%;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  writing-mode: vertical-rl;
-}
-
-.team-tag.team-one {
-  left: 21%;
-  color: #caaa66;
-}
-
-.team-tag.team-two {
-  right: 21%;
-  color: #659b88;
-}
-
 .lobby-footer {
   width: min(820px, 100%);
   min-height: 68px;
@@ -1739,10 +1719,6 @@ h1 {
 
   .seat-east {
     right: -2%;
-  }
-
-  .team-tag {
-    display: none;
   }
 
   .lobby-footer {
