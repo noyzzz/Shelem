@@ -1,0 +1,24 @@
+port: 7880
+bind_addresses:
+  - "0.0.0.0"
+
+redis:
+  address: 127.0.0.1:6379
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+
+turn:
+  enabled: true
+  udp_port: 3478
+
+room:
+  auto_create: true
+  empty_timeout: 300
+  departure_timeout: 20
+
+logging:
+  level: info
