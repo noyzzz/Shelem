@@ -135,6 +135,10 @@ export function App() {
   const [actionError, setActionError] = useState("");
   const [bidAmount, setBidAmount] = useState(100);
   const [selectedDiscardIds, setSelectedDiscardIds] = useState<string[]>([]);
+  const [selectedPlayCardId, setSelectedPlayCardId] = useState<string | null>(
+    null,
+  );
+  const [playPending, setPlayPending] = useState(false);
   const [seatChangePending, setSeatChangePending] =
     useState<Position | null>(null);
   const [connectionStatus, setConnectionStatus] = useState("connecting");
@@ -191,6 +195,20 @@ export function App() {
       setSelectedDiscardIds([]);
     }
   }, [room?.match?.phase]);
+
+  useEffect(() => {
+    if (!selectedPlayCardId) return;
+    const canKeepSelection =
+      room?.match?.phase === "playing" &&
+      room.match.play?.currentTurnPlayerId === gameClient.playerId &&
+      room.match.yourHand.some((card) => card.id === selectedPlayCardId);
+    if (!canKeepSelection) setSelectedPlayCardId(null);
+  }, [
+    room?.match?.phase,
+    room?.match?.play?.currentTurnPlayerId,
+    room?.match?.yourHand,
+    selectedPlayCardId,
+  ]);
 
   const begin = (nextFlow: Flow) => {
     setFlow(nextFlow);
@@ -323,14 +341,24 @@ export function App() {
     }
   };
 
-  const playCard = async (cardId: string) => {
+  const selectPlayCard = (cardId: string) => {
+    setSelectedPlayCardId(cardId);
+    setActionError("");
+  };
+
+  const confirmPlayCard = async () => {
+    if (!selectedPlayCardId || playPending) return;
+    setPlayPending(true);
     try {
-      await gameClient.playCard(cardId);
+      await gameClient.playCard(selectedPlayCardId);
+      setSelectedPlayCardId(null);
       setActionError("");
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : "Unable to play that card.",
       );
+    } finally {
+      setPlayPending(false);
     }
   };
 
@@ -594,7 +622,9 @@ export function App() {
                 room.match.phase === "playing" ? playableCardIds : undefined
               }
               onToggle={
-                room.match.phase === "playing" ? playCard : toggleDiscard
+                room.match.phase === "playing"
+                  ? selectPlayCard
+                  : toggleDiscard
               }
               selectable={
                 (room.match.phase === "ground" &&
@@ -602,14 +632,33 @@ export function App() {
                 (room.match.phase === "playing" &&
                   room.match.play?.currentTurnPlayerId === gameClient.playerId)
               }
-              selectedIds={selectedDiscardIds}
+              selectedIds={
+                room.match.phase === "playing"
+                  ? selectedPlayCardId
+                    ? [selectedPlayCardId]
+                    : []
+                  : selectedDiscardIds
+              }
             />
           )}
-          {room?.match?.phase === "playing" && actionError && (
-            <p className="table-action-error action-error" role="alert">
-              {actionError}
-            </p>
-          )}
+          {room?.match?.phase === "playing" &&
+            room.match.play?.currentTurnPlayerId === gameClient.playerId && (
+              <PlayCardConfirmation
+                card={
+                  room.match.yourHand.find(
+                    (card) => card.id === selectedPlayCardId,
+                  ) ?? null
+                }
+                canConfirm={
+                  selectedPlayCardId !== null &&
+                  playableCardIds.includes(selectedPlayCardId)
+                }
+                error={actionError}
+                onCancel={() => setSelectedPlayCardId(null)}
+                onConfirm={confirmPlayCard}
+                pending={playPending}
+              />
+            )}
           {room?.match?.phase === "bidding" && (
             <BiddingPanel
               actionError={actionError}
@@ -994,6 +1043,62 @@ function GroundPanel({
   );
 }
 
+function PlayCardConfirmation({
+  canConfirm,
+  card,
+  error,
+  onCancel,
+  onConfirm,
+  pending,
+}: {
+  canConfirm: boolean;
+  card: Card | null;
+  error: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  pending: boolean;
+}) {
+  return (
+    <section className="play-confirmation" aria-label="Confirm card play">
+      <div>
+        <strong>
+          {card
+            ? `${card.rank} of ${suitLabel(card.suit)} selected`
+            : "Choose a card from your hand"}
+        </strong>
+        <small>
+          {card
+            ? "It will not be played until you confirm."
+            : "Tap a highlighted card to preview it first."}
+        </small>
+      </div>
+      <div className="play-confirmation-actions">
+        <button
+          className="play-cancel"
+          disabled={!card || pending}
+          onClick={onCancel}
+          type="button"
+        >
+          Cancel
+        </button>
+        <button
+          className="play-confirm"
+          disabled={!canConfirm || pending}
+          onClick={onConfirm}
+          type="button"
+        >
+          {pending ? "Playing…" : "Play card"}
+        </button>
+      </div>
+      {error && (
+        <p className="action-error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function TableTrick({
   room,
   viewerPosition,
@@ -1283,18 +1388,19 @@ function Hand({
         className={`hand-cards ${cards.length > 12 ? "is-large-hand" : ""}`}
       >
         {sortedCards.map((card, index) => {
+          const selected = selectedIds.includes(card.id);
           const distanceFromCenter = index - (sortedCards.length - 1) / 2;
           const fanAngleStep = sortedCards.length > 12 ? 1.55 : 2.25;
           const fanDropStep = sortedCards.length > 12 ? 1.45 : 2.1;
           const fanStyle = {
             "--fan-angle": `${distanceFromCenter * fanAngleStep}deg`,
             "--fan-drop": `${Math.abs(distanceFromCenter) * fanDropStep}px`,
-            zIndex: index + 1,
+            zIndex: selected ? sortedCards.length + 2 : index + 1,
           } as CSSProperties;
           return (
           <button
             className={`playing-card is-${card.suit} ${
-              selectedIds.includes(card.id) ? "is-selected" : ""
+              selected ? "is-selected" : ""
             }`}
             disabled={
               !selectable ||
@@ -1302,6 +1408,7 @@ function Hand({
             }
             key={card.id}
             aria-label={`${card.rank} of ${card.suit}`}
+            aria-pressed={selected}
             onClick={() => onToggle?.(card.id)}
             style={fanStyle}
             type="button"

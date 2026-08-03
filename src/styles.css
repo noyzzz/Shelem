@@ -1377,8 +1377,8 @@ h1 {
   box-shadow:
     0 0 0 3px rgb(239 201 120 / 22%),
     0 10px 24px rgb(0 0 0 / 24%);
-  transform: translateY(calc(var(--fan-drop, 0px) - 15px))
-    rotate(var(--fan-angle, 0deg));
+  transform: translateY(calc(var(--fan-drop, 0px) - 18px))
+    rotate(var(--fan-angle, 0deg)) scale(1.13);
 }
 
 .card-face {
@@ -1502,6 +1502,70 @@ h1 {
 .ground-submit:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.play-confirmation {
+  width: min(920px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 10px auto 0;
+  padding: 12px 14px;
+  border: 1px solid rgb(239 201 120 / 18%);
+  border-radius: 15px;
+  background: rgb(239 201 120 / 6%);
+}
+
+.play-confirmation > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.play-confirmation strong {
+  color: #f7e8c2;
+  font-family: Georgia, serif;
+  font-size: 15px;
+}
+
+.play-confirmation small {
+  color: #84998f;
+  font-size: 10px;
+}
+
+.play-confirmation-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.play-confirmation-actions button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.play-cancel {
+  border: 1px solid rgb(255 255 255 / 12%);
+  color: #a9bab2;
+  background: transparent;
+}
+
+.play-confirm {
+  border: 1px solid #efc978;
+  color: #173024;
+  background: #efc978;
+}
+
+.play-confirmation-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.play-confirmation > .action-error {
+  grid-column: 1 / -1;
 }
 
 .play-panel {
@@ -2210,6 +2274,17 @@ h1 {
     padding-bottom: 8px;
   }
 
+  .is-match-active .play-confirmation {
+    margin-top: 7px;
+    padding: 8px 10px;
+  }
+
+  .is-match-active .play-confirmation-actions button {
+    min-height: 34px;
+    padding-inline: 10px;
+    font-size: 11px;
+  }
+
   .is-match-active .bidding-panel,
   .is-match-active .ground-panel,
   .is-match-active .ground-reveal-panel,
@@ -2243,6 +2318,15 @@ h1 {
 }
 
 @media (max-width: 360px) {
+  .play-confirmation {
+    grid-template-columns: 1fr;
+  }
+
+  .play-confirmation-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
   .playing-card {
     width: 42px;
     flex-basis: 42px;
