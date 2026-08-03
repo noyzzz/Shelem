@@ -6,6 +6,7 @@ import { calculateHandScore, cardPoints } from "./gameRules.mjs";
 const port = Number(process.env.PORT ?? 3001);
 const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 60_000);
 const botActionDelayMs = Number(process.env.BOT_ACTION_DELAY_MS ?? 350);
+const groundRevealMs = Number(process.env.GROUND_REVEAL_MS ?? 4_000);
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const positions = ["south", "west", "north", "east"];
 const suits = ["clubs", "diamonds", "hearts", "spades"];
@@ -68,6 +69,10 @@ const serializeRoom = (room, viewerId) => ({
           dealerPosition: room.match.dealerPosition,
           firstBidderPosition: room.match.firstBidderPosition,
           groundCount: room.match.ground.length,
+          groundCards:
+            room.match.phase === "ground-reveal"
+              ? room.match.ground
+              : [],
           discardCount: room.match.discarded.length,
           trump: room.match.trump,
           nextHandReadyPlayerIds: [
@@ -222,11 +227,22 @@ const advanceBidTurn = (room, currentPlayerId) => {
     bidding.winnerId = activePlayers[0].id;
     bidding.winningBid = bidding.currentBid;
     bidding.currentTurnPlayerId = null;
-    room.match.hands
-      .get(activePlayers[0].id)
-      .push(...room.match.ground);
-    room.match.ground = [];
-    room.match.phase = "ground";
+    room.match.phase = "ground-reveal";
+    clearTimeout(room.groundRevealTimer);
+    room.groundRevealTimer = setTimeout(() => {
+      if (
+        room.match?.phase !== "ground-reveal" ||
+        room.match.bidding.winnerId !== activePlayers[0].id
+      ) {
+        return;
+      }
+      room.match.hands
+        .get(activePlayers[0].id)
+        .push(...room.match.ground);
+      room.match.ground = [];
+      room.match.phase = "ground";
+      broadcastRoom(room);
+    }, groundRevealMs);
     return;
   }
 

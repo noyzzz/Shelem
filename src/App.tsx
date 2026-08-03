@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, type CSSProperties } from "react";
 import {
   gameClient,
   type Card,
@@ -284,6 +284,8 @@ export function App() {
                 ? "The hand is scored."
                 : room?.match?.phase === "playing"
                 ? "Trump is declared."
+                : room?.match?.phase === "ground-reveal"
+                ? "The zamin is revealed."
                 : room?.match?.phase === "ground"
                 ? "The bid is won."
                 : room?.match
@@ -297,6 +299,8 @@ export function App() {
                       room.matchWinnerTeam ??
                       "one",
                   )} wins by forfeit.`
+                : room?.match?.phase === "ground-reveal"
+                ? "Everyone can see the four zamin cards before the bidder takes them."
                 : room?.match?.phase === "ground"
                 ? "The winning bidder will take the zamin and declare trump."
                 : room?.match?.phase === "hand-results"
@@ -359,6 +363,8 @@ export function App() {
                     ? `Trick ${
                         (room.match.play?.completedTrickCount ?? 0) + 1
                       } of 12`
+                    : room.match.phase === "ground-reveal"
+                    ? "The four zamin cards are revealed"
                     : room.match.phase === "ground"
                     ? `${
                         room.players.find(
@@ -382,6 +388,8 @@ export function App() {
                   ? `Bid: ${room.match.result?.bid} · ${suitLabel(room.match.trump)} was trump`
                   : room?.match?.phase === "playing"
                   ? `${suitLabel(room.match.trump)} is trump`
+                  : room?.match?.phase === "ground-reveal"
+                  ? "The bidder will receive them in a moment"
                   : room?.match?.phase === "ground"
                     ? "The winning bidder now holds the four zamin cards"
                   : room?.match
@@ -390,6 +398,10 @@ export function App() {
               </small>
             </div>
           </div>
+
+          {room?.match?.phase === "ground-reveal" && (
+            <GroundRevealPanel cards={room.match.groundCards} />
+          )}
 
           {room?.match &&
             room.match.phase !== "hand-results" &&
@@ -461,6 +473,8 @@ export function App() {
               <span className="match-status">
                 {room.match.phase === "match-complete"
                   ? "Match complete"
+                  : room.match.phase === "ground-reveal"
+                  ? "Showing everyone the zamin"
                   : room.match.phase === "ground"
                   ? room.match.bidding.winnerId === gameClient.playerId
                     ? "Choose four discards and trump"
@@ -729,6 +743,26 @@ function BiddingPanel({
   );
 }
 
+function GroundRevealPanel({ cards }: { cards: Card[] }) {
+  return (
+    <section className="ground-reveal-panel" aria-label="Revealed zamin">
+      <div>
+        <span>Zamin revealed</span>
+        <strong>Everyone sees these cards</strong>
+        <p>The winning bidder will receive them shortly.</p>
+      </div>
+      <div className="ground-reveal-cards">
+        {cards.map((card) => (
+          <article className={`ground-card is-${card.suit}`} key={card.id}>
+            <strong>{card.rank}</strong>
+            <span>{suitSymbol(card.suit)}</span>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function GroundPanel({
   actionError,
   onSubmit,
@@ -793,6 +827,17 @@ function PlayPanel({
   const lastWinner = room.players.find(
     (player) => player.id === play.lastTrickWinnerId,
   );
+  const teamTricks = room.players.reduce(
+    (totals, player) => {
+      const team =
+        player.position === "north" || player.position === "south"
+          ? "one"
+          : "two";
+      totals[team] += play.trickWins[player.id] ?? 0;
+      return totals;
+    },
+    { one: 0, two: 0 },
+  );
 
   return (
     <section className="play-panel" aria-label="Current trick">
@@ -835,11 +880,14 @@ function PlayPanel({
       </div>
 
       <div className="trick-score">
-        {room.players.map((player) => (
-          <span key={player.id}>
-            {player.name}: {play.trickWins[player.id] ?? 0}
-          </span>
-        ))}
+        <span>
+          <strong>Team One</strong>
+          {teamTricks.one} {teamTricks.one === 1 ? "trick" : "tricks"}
+        </span>
+        <span>
+          <strong>Team Two</strong>
+          {teamTricks.two} {teamTricks.two === 1 ? "trick" : "tricks"}
+        </span>
       </div>
 
       {actionError && (
@@ -1010,7 +1058,14 @@ function Hand({
         <span>{cards.length} cards</span>
       </div>
       <div className="hand-cards">
-        {sortedCards.map((card) => (
+        {sortedCards.map((card, index) => {
+          const distanceFromCenter = index - (sortedCards.length - 1) / 2;
+          const fanStyle = {
+            "--fan-angle": `${distanceFromCenter * 2.25}deg`,
+            "--fan-drop": `${Math.abs(distanceFromCenter) * 2.1}px`,
+            zIndex: index + 1,
+          } as CSSProperties;
+          return (
           <button
             className={`playing-card is-${card.suit} ${
               selectedIds.includes(card.id) ? "is-selected" : ""
@@ -1022,12 +1077,14 @@ function Hand({
             key={card.id}
             aria-label={`${card.rank} of ${card.suit}`}
             onClick={() => onToggle?.(card.id)}
+            style={fanStyle}
             type="button"
           >
             <strong>{card.rank}</strong>
             <span>{suitSymbols[card.suit]}</span>
           </button>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

@@ -32,6 +32,7 @@ export type Card = {
 export type Match = {
   phase:
     | "bidding"
+    | "ground-reveal"
     | "ground"
     | "playing"
     | "hand-results"
@@ -40,6 +41,7 @@ export type Match = {
   dealerPosition: Position;
   firstBidderPosition: Position;
   groundCount: number;
+  groundCards: Card[];
   discardCount: number;
   trump: Card["suit"] | null;
   nextHandReadyPlayerIds: string[];

@@ -115,6 +115,7 @@ before(async () => {
       PORT: String(port),
       RECONNECT_GRACE_MS: "50",
       BOT_ACTION_DELAY_MS: "1",
+      GROUND_REVEAL_MS: "5",
     },
     stdio: "ignore",
   });
@@ -409,10 +410,12 @@ test("starts a four-player hand and deals private cards", async () => {
     type: "pass-bid",
     playerId: "west",
   });
-  assert.equal(westPass.room.match.phase, "ground");
+  assert.equal(westPass.room.match.phase, "ground-reveal");
   assert.equal(westPass.room.match.bidding.winnerId, "north");
   assert.equal(westPass.room.match.bidding.winningBid, 105);
   assert.equal(westPass.room.match.bidding.currentTurnPlayerId, null);
+  assert.equal(westPass.room.match.groundCount, 4);
+  assert.equal(westPass.room.match.groundCards.length, 4);
 
   const northGround = await waitForMessage(
     clients[2],
@@ -420,6 +423,7 @@ test("starts a four-player hand and deals private cards", async () => {
   );
   assert.equal(northGround.room.match.yourHand.length, 16);
   assert.equal(northGround.room.match.groundCount, 0);
+  assert.deepEqual(northGround.room.match.groundCards, []);
 
   const wrongPlayer = await command(clients[0], {
     type: "complete-ground",

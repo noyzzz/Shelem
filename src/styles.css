@@ -874,14 +874,19 @@ h1 {
 }
 
 .hand-cards {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(48px, 1fr));
-  gap: 7px;
+  min-height: 145px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4px 24px 18px;
+  overflow: visible;
 }
 
 .playing-card {
-  min-width: 0;
+  width: clamp(58px, 7.2vw, 82px);
+  flex: 0 0 clamp(58px, 7.2vw, 82px);
   aspect-ratio: 0.7;
+  margin-left: -17px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -892,13 +897,24 @@ h1 {
   background: #f7f0df;
   box-shadow: 0 7px 18px rgb(0 0 0 / 18%);
   padding: 0;
+  transform: translateY(var(--fan-drop, 0)) rotate(var(--fan-angle, 0deg));
+  transform-origin: 50% 135%;
   transition:
     border-color 150ms ease,
     transform 150ms ease;
 }
 
+.playing-card:first-child {
+  margin-left: 0;
+}
+
 .playing-card:not(:disabled) {
   cursor: pointer;
+}
+
+.playing-card:not(:disabled):hover {
+  transform: translateY(calc(var(--fan-drop, 0px) - 12px))
+    rotate(var(--fan-angle, 0deg));
 }
 
 .playing-card:disabled {
@@ -910,7 +926,8 @@ h1 {
   box-shadow:
     0 0 0 3px rgb(239 201 120 / 22%),
     0 10px 24px rgb(0 0 0 / 24%);
-  transform: translateY(-7px);
+  transform: translateY(calc(var(--fan-drop, 0px) - 15px))
+    rotate(var(--fan-angle, 0deg));
 }
 
 .playing-card strong {
@@ -924,6 +941,74 @@ h1 {
 
 .playing-card.is-diamonds,
 .playing-card.is-hearts {
+  color: #a43e39;
+}
+
+.ground-reveal-panel {
+  width: min(920px, 100%);
+  margin: 12px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 17px 20px;
+  border: 1px solid rgb(239 201 120 / 34%);
+  border-radius: 17px;
+  background: linear-gradient(90deg, rgb(239 201 120 / 11%), rgb(239 201 120 / 4%));
+}
+
+.ground-reveal-panel > div:first-child {
+  margin-right: auto;
+  display: grid;
+  gap: 4px;
+}
+
+.ground-reveal-panel > div:first-child > span {
+  color: #efc978;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.ground-reveal-panel > div:first-child > strong {
+  font-family: Georgia, serif;
+  font-size: 17px;
+}
+
+.ground-reveal-panel p {
+  margin: 0;
+  color: #8fa49a;
+  font-size: 11px;
+}
+
+.ground-reveal-cards {
+  display: flex;
+  gap: 8px;
+}
+
+.ground-card {
+  width: 54px;
+  aspect-ratio: 0.7;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  border-radius: 8px;
+  color: #14261e;
+  background: #f7f0df;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 22%);
+}
+
+.ground-card strong {
+  font-family: Georgia, serif;
+  font-size: 17px;
+}
+
+.ground-card span {
+  font-size: 19px;
+}
+
+.ground-card.is-diamonds,
+.ground-card.is-hearts {
   color: #a43e39;
 }
 
@@ -1071,8 +1156,16 @@ h1 {
 }
 
 .trick-score span {
+  display: grid;
+  gap: 3px;
   color: #9cafaa;
   font-size: 11px;
+}
+
+.trick-score strong {
+  color: #f4d38b;
+  font-family: Georgia, serif;
+  font-size: 13px;
 }
 
 .play-panel > .action-error {
@@ -1345,11 +1438,13 @@ h1 {
   }
 
   .hand-cards {
-    grid-template-columns: repeat(6, 1fr);
+    min-height: 125px;
+    padding-inline: 8px;
   }
 
   .bidding-panel,
   .bidding-summary,
+  .ground-reveal-panel,
   .ground-panel,
   .play-panel {
     align-items: stretch;
@@ -1362,6 +1457,14 @@ h1 {
 
   .ground-panel {
     gap: 12px;
+  }
+
+  .ground-reveal-panel {
+    gap: 14px;
+  }
+
+  .ground-reveal-panel > div:first-child {
+    margin-right: 0;
   }
 
   .ground-panel > div {
@@ -1502,7 +1605,19 @@ h1 {
   }
 
   .hand-cards {
-    gap: 6px;
+    min-height: 110px;
+    padding: 3px 0 14px;
+  }
+
+  .playing-card {
+    width: 54px;
+    flex-basis: 54px;
+    margin-left: -27px;
+  }
+
+  .ground-reveal-cards {
+    width: 100%;
+    justify-content: center;
   }
 
   .bid-actions label,
