@@ -610,6 +610,67 @@ h1 {
   background: rgb(255 255 255 / 3%);
 }
 
+.hand-panel {
+  width: min(920px, 100%);
+  margin: 14px auto 0;
+  padding: 16px;
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: 18px;
+  background: rgb(2 12 8 / 34%);
+}
+
+.hand-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.hand-heading strong {
+  font-family: Georgia, serif;
+  font-size: 17px;
+}
+
+.hand-heading span,
+.match-status {
+  color: #8ca197;
+  font-size: 12px;
+}
+
+.hand-cards {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(48px, 1fr));
+  gap: 7px;
+}
+
+.playing-card {
+  min-width: 0;
+  aspect-ratio: 0.7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(32 43 37 / 22%);
+  border-radius: 9px;
+  color: #14261e;
+  background: #f7f0df;
+  box-shadow: 0 7px 18px rgb(0 0 0 / 18%);
+}
+
+.playing-card strong {
+  font-family: Georgia, serif;
+  font-size: clamp(13px, 1.7vw, 20px);
+}
+
+.playing-card span {
+  font-size: clamp(15px, 2vw, 24px);
+}
+
+.playing-card.is-diamonds,
+.playing-card.is-hearts {
+  color: #a43e39;
+}
+
 .connection-note {
   display: flex;
   align-items: center;
@@ -718,6 +779,10 @@ h1 {
   .lobby-footer {
     gap: 14px;
   }
+
+  .hand-cards {
+    grid-template-columns: repeat(6, 1fr);
+  }
 }
 
 @media (max-width: 500px) {
@@ -805,6 +870,14 @@ h1 {
   .lobby-footer {
     flex-direction: column;
     text-align: center;
+  }
+
+  .hand-panel {
+    padding: 13px;
+  }
+
+  .hand-cards {
+    gap: 6px;
   }
 
   .ready-button {

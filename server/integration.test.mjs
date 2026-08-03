@@ -32,8 +32,7 @@ const connect = () =>
       if (waiter) {
         clearTimeout(waiter.timer);
         waiter.resolve(message);
-      }
-      else inbox.messages.push(message);
+      } else inbox.messages.push(message);
     });
     socket.once("open", () => resolve(socket));
     socket.once("error", reject);
@@ -62,6 +61,13 @@ const command = async (socket, message) => {
   while (true) {
     const response = await nextMessage(socket);
     if (response.requestId === requestId) return response;
+  }
+};
+
+const waitForMessage = async (socket, predicate) => {
+  while (true) {
+    const message = await nextMessage(socket);
+    if (predicate(message)) return message;
   }
 };
 
@@ -139,4 +145,72 @@ test("creates, validates, synchronizes, and cleans up rooms", async () => {
 
   host.close();
   stranger.close();
+});
+
+test("starts a four-player hand and deals private cards", async () => {
+  const clients = await Promise.all([
+    connect(),
+    connect(),
+    connect(),
+    connect(),
+  ]);
+  const playerIds = ["south", "west", "north", "east"];
+
+  const created = await command(clients[0], {
+    type: "create-room",
+    playerId: playerIds[0],
+    name: "South",
+  });
+
+  for (let index = 1; index < clients.length; index += 1) {
+    await command(clients[index], {
+      type: "join-room",
+      playerId: playerIds[index],
+      name: playerIds[index],
+      code: created.room.code,
+    });
+  }
+
+  for (let index = 0; index < clients.length - 1; index += 1) {
+    await command(clients[index], {
+      type: "set-ready",
+      playerId: playerIds[index],
+      ready: true,
+    });
+  }
+
+  const finalReady = await command(clients[3], {
+    type: "set-ready",
+    playerId: playerIds[3],
+    ready: true,
+  });
+  assert.equal(finalReady.room.match.phase, "dealt");
+
+  const dealtStates = await Promise.all(
+    clients.map((client, index) =>
+      index === 3
+        ? finalReady
+        : waitForMessage(client, (message) => Boolean(message.room?.match)),
+    ),
+  );
+
+  const allDealtCards = dealtStates.flatMap(
+    (message) => message.room.match.yourHand,
+  );
+  assert.equal(allDealtCards.length, 48);
+  assert.equal(
+    new Set(allDealtCards.map((card) => `${card.rank}-${card.suit}`)).size,
+    48,
+  );
+
+  for (const [index, state] of dealtStates.entries()) {
+    assert.equal(state.room.match.yourHand.length, 12);
+    assert.equal(state.room.match.groundCount, 4);
+    assert.equal(state.room.match.dealerPosition, "south");
+    assert.equal(state.room.match.firstBidderPosition, "west");
+    assert.equal(state.room.players[index].position, playerIds[index]);
+    assert.equal("ground" in state.room.match, false);
+  }
+
+  clients.forEach((client) => client.close());
 });

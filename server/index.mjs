@@ -1,10 +1,13 @@
 import { createServer } from "node:http";
+import { randomInt } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 
 const port = Number(process.env.PORT ?? 3001);
-const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 15_000);
+const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 60_000);
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const positions = ["south", "north", "west", "east"];
+const positions = ["south", "west", "north", "east"];
+const suits = ["clubs", "diamonds", "hearts", "spades"];
+const ranks = ["A", "K", "Q", "J", "10", "9", "8", "7", "6", "5", "4", "3", "2"];
 const rooms = new Map();
 
 const httpServer = createServer((request, response) => {
@@ -43,12 +46,30 @@ const createRoomCode = () => {
   return code;
 };
 
-const serializeRoom = (room) => ({
+const serializeRoom = (room, viewerId) => ({
   code: room.code,
   players: [...room.players.values()].map(
     ({ disconnectTimer: _disconnectTimer, socket: _socket, ...player }) =>
       player,
   ),
+  ...(room.match
+    ? {
+        match: {
+          phase: room.match.phase,
+          handNumber: room.match.handNumber,
+          dealerPosition: room.match.dealerPosition,
+          firstBidderPosition: room.match.firstBidderPosition,
+          groundCount: room.match.ground.length,
+          handCounts: Object.fromEntries(
+            [...room.match.hands].map(([playerId, hand]) => [
+              playerId,
+              hand.length,
+            ]),
+          ),
+          yourHand: room.match.hands.get(viewerId) ?? [],
+        },
+      }
+    : {}),
 });
 
 const send = (socket, message) => {
@@ -58,19 +79,56 @@ const send = (socket, message) => {
 };
 
 const broadcastRoom = (room, requestId, targetSocket) => {
-  const message = {
-    type: "room-state",
-    room: serializeRoom(room),
-    ...(requestId ? { requestId } : {}),
-  };
-
   for (const player of room.players.values()) {
+    const message = {
+      type: "room-state",
+      room: serializeRoom(room, player.id),
+      ...(player.socket === targetSocket && requestId ? { requestId } : {}),
+    };
     if (player.socket === targetSocket && requestId) {
       send(player.socket, message);
     } else {
-      send(player.socket, { type: "room-state", room: message.room });
+      send(player.socket, message);
     }
   }
+};
+
+const createDeck = () =>
+  suits.flatMap((suit) => ranks.map((rank) => ({ suit, rank })));
+
+const shuffle = (cards) => {
+  for (let index = cards.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(index + 1);
+    [cards[index], cards[swapIndex]] = [cards[swapIndex], cards[index]];
+  }
+  return cards;
+};
+
+const startMatchIfReady = (room) => {
+  const players = [...room.players.values()];
+  if (
+    room.match ||
+    players.length !== 4 ||
+    players.some((player) => !player.ready || !player.connected)
+  ) {
+    return;
+  }
+
+  const deck = shuffle(createDeck());
+  const hands = new Map(players.map((player) => [player.id, []]));
+  for (let cardIndex = 0; cardIndex < 48; cardIndex += 1) {
+    const player = players[cardIndex % players.length];
+    hands.get(player.id).push(deck[cardIndex]);
+  }
+
+  room.match = {
+    phase: "dealt",
+    handNumber: 1,
+    dealerPosition: "south",
+    firstBidderPosition: "west",
+    hands,
+    ground: deck.slice(48),
+  };
 };
 
 const sendError = (socket, requestId, code, message) => {
@@ -228,6 +286,7 @@ webSocketServer.on("connection", (socket) => {
 
     if (message.type === "set-ready") {
       player.ready = Boolean(message.ready);
+      startMatchIfReady(room);
       broadcastRoom(room, requestId, socket);
       return;
     }

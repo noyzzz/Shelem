@@ -8,9 +8,38 @@ export type Player = {
   connected: boolean;
 };
 
+export type Card = {
+  suit: "clubs" | "diamonds" | "hearts" | "spades";
+  rank:
+    | "A"
+    | "K"
+    | "Q"
+    | "J"
+    | "10"
+    | "9"
+    | "8"
+    | "7"
+    | "6"
+    | "5"
+    | "4"
+    | "3"
+    | "2";
+};
+
+export type Match = {
+  phase: "dealt";
+  handNumber: number;
+  dealerPosition: Position;
+  firstBidderPosition: Position;
+  groundCount: number;
+  handCounts: Record<string, number>;
+  yourHand: Card[];
+};
+
 export type Room = {
   code: string;
   players: Player[];
+  match?: Match;
 };
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";

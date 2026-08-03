@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import {
   gameClient,
+  type Card,
   type Player,
   type Position,
   type Room,
@@ -153,9 +154,15 @@ export function App() {
 
         <section className="lobby-content">
           <div className="lobby-title">
-            <p className="eyebrow">Your private table</p>
-            <h1>Gather your players</h1>
-            <p>Share the room code. The game begins when all four are ready.</p>
+            <p className="eyebrow">
+              {room?.match ? `Hand ${room.match.handNumber}` : "Your private table"}
+            </p>
+            <h1>{room?.match ? "The cards are dealt." : "Gather your players"}</h1>
+            <p>
+              {room?.match
+                ? "Your hand is private. Bidding is the next phase."
+                : "Share the room code. The game begins when all four are ready."}
+            </p>
           </div>
 
           <div className="table-wrap">
@@ -186,7 +193,14 @@ export function App() {
                 <span>ش</span>
               </div>
               <strong>
-                {room?.players.length === 4
+                {room?.match
+                  ? `Bidding starts with ${
+                      room.players.find(
+                        (player) =>
+                          player.position === room.match?.firstBidderPosition,
+                      )?.name ?? "the player after the dealer"
+                    }`
+                  : room?.players.length === 4
                   ? "All players have joined"
                   : `Waiting for ${4 - (room?.players.length ?? 1)} ${
                       4 - (room?.players.length ?? 1) === 1
@@ -194,9 +208,15 @@ export function App() {
                         : "players"
                     }`}
               </strong>
-              <small>Invite friends using code {roomCode}</small>
+              <small>
+                {room?.match
+                  ? `${room.match.groundCount} cards are face down in the zamin`
+                  : `Invite friends using code ${roomCode}`}
+              </small>
             </div>
           </div>
+
+          {room?.match && <Hand cards={room.match.yourHand} />}
 
           <div className="lobby-footer">
             <div className="connection-note">
@@ -209,13 +229,17 @@ export function App() {
                 ? "Connected to the game server"
                 : "Reconnecting to the game server…"}
             </div>
-            <button
-              className={`ready-button ${ready ? "is-ready" : ""}`}
-              onClick={toggleReady}
-              type="button"
-            >
-              {ready ? "Ready ✓" : "I’m ready"}
-            </button>
+            {room?.match ? (
+              <span className="match-status">Ready for bidding</span>
+            ) : (
+              <button
+                className={`ready-button ${ready ? "is-ready" : ""}`}
+                onClick={toggleReady}
+                type="button"
+              >
+                {ready ? "Ready ✓" : "I’m ready"}
+              </button>
+            )}
           </div>
         </section>
 
@@ -355,6 +379,62 @@ export function App() {
         </section>
       )}
     </main>
+  );
+}
+
+function Hand({ cards }: { cards: Card[] }) {
+  const suitSymbols: Record<Card["suit"], string> = {
+    clubs: "♣",
+    diamonds: "♦",
+    hearts: "♥",
+    spades: "♠",
+  };
+  const suitOrder: Card["suit"][] = [
+    "clubs",
+    "diamonds",
+    "hearts",
+    "spades",
+  ];
+  const rankOrder: Card["rank"][] = [
+    "A",
+    "K",
+    "Q",
+    "J",
+    "10",
+    "9",
+    "8",
+    "7",
+    "6",
+    "5",
+    "4",
+    "3",
+    "2",
+  ];
+  const sortedCards = [...cards].sort(
+    (left, right) =>
+      suitOrder.indexOf(left.suit) - suitOrder.indexOf(right.suit) ||
+      rankOrder.indexOf(left.rank) - rankOrder.indexOf(right.rank),
+  );
+
+  return (
+    <section className="hand-panel" aria-label="Your hand">
+      <div className="hand-heading">
+        <strong>Your hand</strong>
+        <span>{cards.length} cards</span>
+      </div>
+      <div className="hand-cards">
+        {sortedCards.map((card) => (
+          <div
+            className={`playing-card is-${card.suit}`}
+            key={`${card.rank}-${card.suit}`}
+            aria-label={`${card.rank} of ${card.suit}`}
+          >
+            <strong>{card.rank}</strong>
+            <span>{suitSymbols[card.suit]}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
