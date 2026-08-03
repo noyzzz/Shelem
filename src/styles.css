@@ -572,6 +572,135 @@ h1 {
   color: #81a393;
 }
 
+.table-status {
+  width: 145px;
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.table-trick {
+  position: absolute;
+  z-index: 3;
+  inset: 16px 20px;
+  pointer-events: none;
+}
+
+.table-card-slot {
+  min-width: 58px;
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  color: #7ca08f;
+  font-size: 8px;
+  text-align: center;
+  transition: transform 180ms ease;
+}
+
+.table-card-slot.slot-north {
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.table-card-slot.slot-south {
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.table-card-slot.slot-west {
+  top: 50%;
+  left: 12%;
+  transform: translateY(-50%);
+}
+
+.table-card-slot.slot-east {
+  top: 50%;
+  right: 12%;
+  transform: translateY(-50%);
+}
+
+.table-card-slot small {
+  max-width: 66px;
+  margin: 0;
+  overflow: hidden;
+  color: #81a393;
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-played-card {
+  width: 43px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  border: 1px solid rgb(32 43 37 / 22%);
+  border-radius: 7px;
+  color: #17271f;
+  background: #f7f0df;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 30%);
+  animation: table-card-in 180ms ease both;
+}
+
+.table-played-card strong {
+  font-family: Georgia, serif;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.table-played-card span {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.table-played-card.is-diamonds,
+.table-played-card.is-hearts {
+  color: #a43e39;
+}
+
+.card-waiting-dot {
+  width: 7px;
+  height: 7px;
+  margin: 23px 0 21px;
+  border: 1px solid rgb(239 201 120 / 32%);
+  border-radius: 50%;
+  background: rgb(239 201 120 / 7%);
+}
+
+.table-team-tricks {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: space-between;
+  color: #b7c7c0;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.table-action-error {
+  width: min(920px, 100%);
+  margin: 8px auto 0;
+  text-align: center;
+}
+
+@keyframes table-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.92);
+  }
+}
+
 .seat {
   min-width: 115px;
   position: absolute;
@@ -1412,8 +1541,8 @@ h1 {
   }
 
   .card-table {
-    width: 62%;
-    left: 19%;
+    width: 78%;
+    left: 11%;
   }
 
   .seat-west {

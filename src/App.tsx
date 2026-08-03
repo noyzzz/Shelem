@@ -348,12 +348,17 @@ export function App() {
 
             <div className="card-table">
               <div className="table-line" />
-              <div className="deck" aria-hidden="true">
+              {room?.match?.phase === "playing" ? (
+                <TableTrick room={room} />
+              ) : (
+                <div className="deck" aria-hidden="true">
                 <span />
                 <span />
                 <span>ش</span>
-              </div>
-              <strong>
+                </div>
+              )}
+              <div className="table-status">
+                <strong>
                 {room?.match
                   ? room.match.phase === "match-complete"
                     ? `${teamLabel(room.matchWinnerTeam ?? "one")} wins`
@@ -395,7 +400,8 @@ export function App() {
                   : room?.match
                   ? `${room.match.groundCount} cards are face down in the zamin`
                   : `Invite friends using code ${roomCode}`}
-              </small>
+                </small>
+              </div>
             </div>
           </div>
 
@@ -423,6 +429,11 @@ export function App() {
               selectedIds={selectedDiscardIds}
             />
           )}
+          {room?.match?.phase === "playing" && actionError && (
+            <p className="table-action-error action-error" role="alert">
+              {actionError}
+            </p>
+          )}
           {room?.match && room.match.phase !== "match-complete" && (
             <BiddingPanel
               actionError={actionError}
@@ -443,10 +454,6 @@ export function App() {
                 trump={trump}
               />
             )}
-          {(room?.match?.phase === "playing" ||
-            room?.match?.phase === "hand-results") && (
-            <PlayPanel actionError={actionError} room={room} />
-          )}
           {room?.match?.phase === "hand-results" && (
             <ResultPanel
               actionError={actionError}
@@ -811,22 +818,9 @@ function GroundPanel({
   );
 }
 
-function PlayPanel({
-  actionError,
-  room,
-}: {
-  actionError: string;
-  room: Room;
-}) {
+function TableTrick({ room }: { room: Room }) {
   const play = room.match?.play;
   if (!play) return null;
-
-  const currentPlayer = room.players.find(
-    (player) => player.id === play.currentTurnPlayerId,
-  );
-  const lastWinner = room.players.find(
-    (player) => player.id === play.lastTrickWinnerId,
-  );
   const teamTricks = room.players.reduce(
     (totals, player) => {
       const team =
@@ -840,61 +834,37 @@ function PlayPanel({
   );
 
   return (
-    <section className="play-panel" aria-label="Current trick">
-      <div className="trick-summary">
-        <strong>
-          {room.match?.phase === "hand-results"
-            ? "Twelve tricks complete"
-            : `Trick ${play.completedTrickCount + 1}`}
-        </strong>
-        <span>
-          {room.match?.phase === "hand-results"
-            ? "Points counted"
-            : `${currentPlayer?.name ?? "Next player"} to play`}
-        </span>
-        {lastWinner && (
-          <small>Last trick won by {lastWinner.name}</small>
-        )}
+    <section className="table-trick" aria-label="Cards on the table">
+      {positions.map((position) => {
+        const player = room.players.find(
+          (candidate) => candidate.position === position,
+        );
+        const played = play.currentTrick.find(
+          (candidate) => candidate.playerId === player?.id,
+        );
+        return (
+          <div
+            className={`table-card-slot slot-${position} ${
+              played ? "has-card" : ""
+            }`}
+            key={position}
+          >
+            {played ? (
+              <article className={`table-played-card is-${played.card.suit}`}>
+                <strong>{played.card.rank}</strong>
+                <span>{suitSymbol(played.card.suit)}</span>
+              </article>
+            ) : (
+              <span className="card-waiting-dot" aria-hidden="true" />
+            )}
+            <small>{player?.name ?? position}</small>
+          </div>
+        );
+      })}
+      <div className="table-team-tricks">
+        <span>Team One {teamTricks.one}</span>
+        <span>Team Two {teamTricks.two}</span>
       </div>
-
-      <div className="current-trick">
-        {play.currentTrick.length > 0 ? (
-          play.currentTrick.map(({ card, playerId }) => (
-            <div className={`trick-card is-${card.suit}`} key={playerId}>
-              <span>
-                {card.rank}
-                {suitSymbol(card.suit)}
-              </span>
-              <small>
-                {room.players.find((player) => player.id === playerId)?.name}
-              </small>
-            </div>
-          ))
-        ) : (
-          <span className="empty-trick">
-            {room.match?.phase === "hand-results"
-              ? "Hand finished"
-              : "Waiting for the lead"}
-          </span>
-        )}
-      </div>
-
-      <div className="trick-score">
-        <span>
-          <strong>Team One</strong>
-          {teamTricks.one} {teamTricks.one === 1 ? "trick" : "tricks"}
-        </span>
-        <span>
-          <strong>Team Two</strong>
-          {teamTricks.two} {teamTricks.two === 1 ? "trick" : "tricks"}
-        </span>
-      </div>
-
-      {actionError && (
-        <p className="action-error" role="alert">
-          {actionError}
-        </p>
-      )}
     </section>
   );
 }
