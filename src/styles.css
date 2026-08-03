@@ -717,6 +717,11 @@ h1 {
   display: block;
   border-radius: 5px;
   box-shadow: 0 5px 12px rgb(0 0 0 / 24%);
+  fill: initial;
+  stroke: initial;
+  stroke-width: initial;
+  stroke-linecap: initial;
+  stroke-linejoin: initial;
 }
 
 .deck > svg:nth-child(1) {
@@ -1234,6 +1239,11 @@ h1 {
   width: 100%;
   height: 100%;
   display: block;
+  fill: initial;
+  stroke: initial;
+  stroke-width: initial;
+  stroke-linecap: initial;
+  stroke-linejoin: initial;
 }
 
 .ground-reveal-panel {
@@ -1840,6 +1850,10 @@ h1 {
     padding-inline: 25px;
   }
 
+  .lobby-content {
+    width: calc(100% - 24px);
+  }
+
   .table-wrap {
     height: 390px;
   }
@@ -1891,18 +1905,21 @@ h1 {
   }
 
   .hand-panel {
-    padding: 13px;
+    min-width: 0;
+    padding: 13px 8px;
   }
 
   .hand-cards {
     min-height: 110px;
-    padding: 3px 0 14px;
+    width: 100%;
+    min-width: 0;
+    padding: 3px 6px 14px;
   }
 
   .playing-card {
-    width: 54px;
-    flex-basis: 54px;
-    margin-left: -27px;
+    width: 48px;
+    flex-basis: 48px;
+    margin-left: -24px;
   }
 
   .ground-reveal-cards {
@@ -1918,5 +1935,12 @@ h1 {
 
   .ready-button {
     width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .playing-card {
+    width: 42px;
+    flex-basis: 42px;
   }
 }
