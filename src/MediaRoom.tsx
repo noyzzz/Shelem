@@ -32,6 +32,12 @@ export function MediaRoom({ players }: MediaRoomProps) {
     const cameraPublication = room.localParticipant.getTrackPublication(
       Track.Source.Camera,
     );
+    const publishedCameraTrack =
+      room.state === ConnectionState.Connected &&
+      cameraPublication?.trackSid &&
+      !cameraPublication.isMuted
+        ? (cameraPublication.videoTrack ?? null)
+        : null;
     setState(room.state);
     setParticipants([
       room.localParticipant,
@@ -39,10 +45,7 @@ export function MediaRoom({ players }: MediaRoomProps) {
     ]);
     setMicrophoneEnabled(room.localParticipant.isMicrophoneEnabled);
     setCameraEnabled(room.localParticipant.isCameraEnabled);
-    setLocalCameraTrack((currentTrack) =>
-      cameraPublication?.videoTrack ??
-      (room.localParticipant.isCameraEnabled ? currentTrack : null),
-    );
+    setLocalCameraTrack(publishedCameraTrack);
   };
 
   const leaveMedia = async () => {
@@ -149,16 +152,7 @@ export function MediaRoom({ players }: MediaRoomProps) {
     setCameraPending(true);
     try {
       const enabling = !room.localParticipant.isCameraEnabled;
-      const publication =
-        await room.localParticipant.setCameraEnabled(enabling);
-      setLocalCameraTrack(
-        enabling
-          ? (publication?.videoTrack ??
-              room.localParticipant.getTrackPublication(Track.Source.Camera)
-                ?.videoTrack ??
-              null)
-          : null,
-      );
+      await room.localParticipant.setCameraEnabled(enabling);
       syncRoom(room);
     } catch (caught) {
       setError(mediaDeviceError(caught, "camera"));
@@ -272,9 +266,9 @@ function ParticipantVideo({
     if (!videoTrack || !element) return;
 
     if (participant.isLocal) {
-      // Use the captured camera stream directly for the local tile. The
-      // published track can be healthy while publication bookkeeping is a
-      // render behind, especially immediately after granting permission.
+      // This track is supplied only after LiveKit has assigned a publication
+      // SID and while the room remains connected, so the preview reflects
+      // what has actually been published to the other players.
       element.srcObject = new MediaStream([videoTrack.mediaStreamTrack]);
       void element.play().catch(() => {});
       return () => {
