@@ -430,6 +430,74 @@ h1 {
   font-size: 14px;
 }
 
+.turn-banner {
+  width: min(820px, 100%);
+  min-height: 66px;
+  margin: 20px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border: 1px solid rgb(120 175 156 / 30%);
+  border-radius: 15px;
+  background: rgb(120 175 156 / 9%);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 12%);
+}
+
+.turn-banner.is-your-turn {
+  border-color: rgb(239 201 120 / 55%);
+  background: linear-gradient(90deg, rgb(239 201 120 / 14%), rgb(239 201 120 / 6%));
+  box-shadow: 0 12px 34px rgb(239 201 120 / 10%);
+}
+
+.turn-pulse {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #78af9c;
+  box-shadow: 0 0 0 0 rgb(120 175 156 / 45%);
+  animation: turn-pulse 1.5s ease-out infinite;
+}
+
+.turn-banner.is-your-turn .turn-pulse {
+  background: #efc978;
+  box-shadow: 0 0 0 0 rgb(239 201 120 / 50%);
+}
+
+.turn-banner > div {
+  display: grid;
+  gap: 2px;
+}
+
+.turn-banner small {
+  color: #8fa69b;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.turn-banner strong {
+  font-family: Georgia, serif;
+  font-size: 17px;
+}
+
+.turn-banner p {
+  margin: 0 0 0 auto;
+  color: #aebfb7;
+  font-size: 12px;
+}
+
+@keyframes turn-pulse {
+  70% {
+    box-shadow: 0 0 0 9px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 .table-wrap {
   width: min(820px, 100%);
   height: 500px;
@@ -562,6 +630,20 @@ h1 {
   border-color: rgb(120 175 156 / 35%);
 }
 
+.seat.is-active-turn .avatar {
+  border-style: solid;
+  transform: scale(1.12);
+  box-shadow:
+    0 0 0 5px rgb(120 175 156 / 13%),
+    0 0 24px rgb(120 175 156 / 32%);
+}
+
+.seat.is-your-turn .avatar {
+  box-shadow:
+    0 0 0 6px rgb(239 201 120 / 17%),
+    0 0 28px rgb(239 201 120 / 42%);
+}
+
 .ready-check {
   width: 20px;
   height: 20px;
@@ -589,6 +671,31 @@ h1 {
   margin-top: 3px;
   color: #6b8378;
   font-size: 11px;
+}
+
+.seat.is-active-turn > strong {
+  color: #fff4d5;
+}
+
+.seat-turn-label {
+  margin-top: 5px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #10271c;
+  background: #78af9c;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.seat.is-your-turn .seat-turn-label {
+  background: #efc978;
+}
+
+.seat.is-active-turn small {
+  max-width: 135px;
+  text-align: center;
 }
 
 .team-tag {
@@ -1193,6 +1300,18 @@ h1 {
 
   .lobby-content {
     padding-top: 28px;
+  }
+
+  .turn-banner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 9px 12px;
+    padding: 12px 14px;
+  }
+
+  .turn-banner p {
+    width: 100%;
+    margin-left: 24px;
   }
 
   .table-wrap {

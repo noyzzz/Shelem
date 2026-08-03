@@ -9,6 +9,11 @@ import {
 
 type Flow = "create" | "join";
 type Screen = "home" | "setup" | "lobby";
+type TurnContext = {
+  playerId: string;
+  action: string;
+  seatLabel: string;
+};
 
 const positions: Position[] = ["south", "north", "west", "east"];
 const cleanRoomCode = (value: string) =>
@@ -52,6 +57,7 @@ export function App() {
     (player) => player.id === gameClient.playerId,
   );
   const hasBots = room?.players.some((player) => player.isBot) ?? false;
+  const turnContext = getTurnContext(room);
 
   useEffect(() => {
     gameClient.connect();
@@ -307,6 +313,10 @@ export function App() {
             </p>
           </div>
 
+          {room && turnContext && (
+            <TurnBanner room={room} turn={turnContext} />
+          )}
+
           <div className="table-wrap">
             <span className="team-tag team-one">Team One</span>
             <span className="team-tag team-two">Team Two</span>
@@ -323,6 +333,11 @@ export function App() {
                     position === "north" || position === "south" ? "one" : "two"
                   }
                   player={player}
+                  turn={
+                    player && turnContext && player.id === turnContext.playerId
+                      ? turnContext
+                      : undefined
+                  }
                 />
               );
             })}
@@ -1063,24 +1078,93 @@ function getPlayableCardIds(room: Room | null) {
   );
 }
 
+function getTurnContext(room: Room | null): TurnContext | null {
+  const match = room?.match;
+  if (!match) return null;
+
+  if (match.phase === "bidding" && match.bidding.currentTurnPlayerId) {
+    return {
+      playerId: match.bidding.currentTurnPlayerId,
+      action: "Choose a bid or pass.",
+      seatLabel: "Bidding now",
+    };
+  }
+
+  if (match.phase === "ground" && match.bidding.winnerId) {
+    return {
+      playerId: match.bidding.winnerId,
+      action: "Discard four cards and declare trump.",
+      seatLabel: "Choosing trump",
+    };
+  }
+
+  if (match.phase === "playing" && match.play?.currentTurnPlayerId) {
+    return {
+      playerId: match.play.currentTurnPlayerId,
+      action: "Play one of the highlighted cards.",
+      seatLabel: "Playing now",
+    };
+  }
+
+  return null;
+}
+
+function TurnBanner({ room, turn }: { room: Room; turn: TurnContext }) {
+  const player = room.players.find(
+    (candidate) => candidate.id === turn.playerId,
+  );
+  if (!player) return null;
+
+  const isYou = player.id === gameClient.playerId;
+  return (
+    <section
+      aria-live="polite"
+      className={`turn-banner ${isYou ? "is-your-turn" : ""}`}
+    >
+      <span className="turn-pulse" aria-hidden="true" />
+      <div>
+        <small>{isYou ? "Your turn" : "Current turn"}</small>
+        <strong>
+          {isYou ? `Your turn, ${player.name}` : `${player.name}'s turn`}
+        </strong>
+      </div>
+      <p>{turn.action}</p>
+    </section>
+  );
+}
+
 function Seat({
   position,
   team,
   player,
+  turn,
 }: {
   position: Position;
   team: "one" | "two";
   player?: Player;
+  turn?: TurnContext;
 }) {
+  const isYou = player?.id === gameClient.playerId;
   return (
-    <div className={`seat seat-${position}`}>
+    <div
+      className={`seat seat-${position} ${turn ? "is-active-turn" : ""} ${
+        turn && isYou ? "is-your-turn" : ""
+      }`}
+    >
       <div className={`avatar team-${team}`}>
         {player ? player.name.slice(0, 1).toUpperCase() : <UsersIcon />}
         {player?.ready && <span className="ready-check">✓</span>}
       </div>
       <strong>{player?.name || "Open seat"}</strong>
+      {turn && (
+        <span className="seat-turn-label">
+          {isYou ? "Your turn" : turn.seatLabel}
+        </span>
+      )}
       <small>
-        {player
+        {turn
+          ? turn.action
+          : player
           ? player.isBot
             ? "Bot player"
             : !player.connected
