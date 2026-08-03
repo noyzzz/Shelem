@@ -266,7 +266,7 @@ function ParticipantVideo({
     setSeatVideoRoot(
       document.getElementById(seatCameraTargetId(participant.identity)),
     );
-  }, [participant.identity]);
+  }, [participant.identity, player?.position]);
 
   const name = player?.name || participant.name || "Player";
   const cameraOn = Boolean(

@@ -59,6 +59,8 @@ export function App() {
   const [actionError, setActionError] = useState("");
   const [bidAmount, setBidAmount] = useState(105);
   const [selectedDiscardIds, setSelectedDiscardIds] = useState<string[]>([]);
+  const [seatChangePending, setSeatChangePending] =
+    useState<Position | null>(null);
   const [connectionStatus, setConnectionStatus] = useState("connecting");
   const ready =
     room?.players.find((player) => player.id === gameClient.playerId)?.ready ??
@@ -158,6 +160,21 @@ export function App() {
       await gameClient.setReady(!ready);
     } catch {
       // The connection indicator communicates transient server failures.
+    }
+  };
+
+  const changeSeat = async (position: Position) => {
+    if (!room || room.match || seatChangePending) return;
+    setSeatChangePending(position);
+    setActionError("");
+    try {
+      await gameClient.changeSeat(position);
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Unable to change seats.",
+      );
+    } finally {
+      setSeatChangePending(null);
     }
   };
 
@@ -358,6 +375,11 @@ export function App() {
                     position === "north" || position === "south" ? "one" : "two"
                   }
                   player={player}
+                  onSelect={
+                    !player && !room?.match && !seatChangePending
+                      ? changeSeat
+                      : undefined
+                  }
                   turn={
                     player && turnContext && player.id === turnContext.playerId
                       ? turnContext
@@ -445,6 +467,12 @@ export function App() {
               </div>
             </div>
           </div>
+
+          {!room?.match && actionError && (
+            <p className="table-action-error action-error" role="alert">
+              {actionError}
+            </p>
+          )}
 
           {room?.match?.phase === "ground-reveal" &&
             room.match.groundCards.length > 0 && (
@@ -1188,11 +1216,13 @@ function TurnBanner({ room, turn }: { room: Room; turn: TurnContext }) {
 }
 
 function Seat({
+  onSelect,
   position,
   team,
   player,
   turn,
 }: {
+  onSelect?: (position: Position) => void;
   position: Position;
   team: "one" | "two";
   player?: Player;
@@ -1205,16 +1235,27 @@ function Seat({
         turn && isYou ? "is-your-turn" : ""
       }`}
     >
-      <div className={`avatar team-${team}`}>
-        {player ? player.name.slice(0, 1).toUpperCase() : <UsersIcon />}
-        {player && (
-          <span
-            className="seat-camera-root"
-            id={`seat-camera-${player.id}`}
-          />
-        )}
-        {player?.ready && <span className="ready-check">✓</span>}
-      </div>
+      {player || !onSelect ? (
+        <div className={`avatar team-${team}`}>
+          {player ? player.name.slice(0, 1).toUpperCase() : <UsersIcon />}
+          {player && (
+            <span
+              className="seat-camera-root"
+              id={`seat-camera-${player.id}`}
+            />
+          )}
+          {player?.ready && <span className="ready-check">✓</span>}
+        </div>
+      ) : (
+        <button
+          aria-label={`Move to the ${position} seat`}
+          className={`avatar team-${team} is-selectable`}
+          onClick={() => onSelect(position)}
+          type="button"
+        >
+          <UsersIcon />
+        </button>
+      )}
       <strong>{player?.name || "Open seat"}</strong>
       {turn && (
         <span className="seat-turn-label">
@@ -1232,7 +1273,9 @@ function Seat({
             : player.ready
               ? "Ready"
               : "Not ready"
-          : "Waiting…"}
+          : onSelect
+            ? "Choose this seat"
+            : "Waiting…"}
       </small>
     </div>
   );

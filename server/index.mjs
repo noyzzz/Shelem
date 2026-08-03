@@ -712,10 +712,16 @@ webSocketServer.on("connection", (socket) => {
         existingPlayer.connected = true;
         existingPlayer.name = name;
       } else {
+        const occupiedPositions = new Set(
+          [...room.players.values()].map((candidate) => candidate.position),
+        );
+        const openPosition = positions.find(
+          (position) => !occupiedPositions.has(position),
+        );
         room.players.set(playerId, {
           id: playerId,
           name,
-          position: positions[room.players.size],
+          position: openPosition,
           ready: false,
           connected: true,
           isBot: false,
@@ -734,6 +740,45 @@ webSocketServer.on("connection", (socket) => {
     const player = room?.players.get(playerId);
     if (!room || !player || player.socket !== socket) {
       sendError(socket, requestId, "not-in-room", "Join a room first.");
+      return;
+    }
+
+    if (message.type === "change-seat") {
+      if (room.match) {
+        sendError(
+          socket,
+          requestId,
+          "match-started",
+          "Seats cannot be changed after the match starts.",
+        );
+        return;
+      }
+      if (!positions.includes(message.position)) {
+        sendError(
+          socket,
+          requestId,
+          "invalid-position",
+          "Choose an available seat.",
+        );
+        return;
+      }
+      const occupant = [...room.players.values()].find(
+        (candidate) =>
+          candidate.id !== playerId &&
+          candidate.position === message.position,
+      );
+      if (occupant) {
+        sendError(
+          socket,
+          requestId,
+          "seat-occupied",
+          "That seat is already occupied.",
+        );
+        return;
+      }
+
+      player.position = message.position;
+      broadcastRoom(room, requestId, socket);
       return;
     }
 

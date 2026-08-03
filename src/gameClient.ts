@@ -256,6 +256,10 @@ class GameClient {
     return this.request({ type: "set-ready", ready });
   }
 
+  changeSeat(position: Position) {
+    return this.request({ type: "change-seat", position });
+  }
+
   fillWithBots() {
     return this.request({ type: "fill-with-bots" });
   }

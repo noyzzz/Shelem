@@ -163,6 +163,16 @@ test("creates, validates, synchronizes, and cleans up rooms", async () => {
   assert.equal(unauthorizedMedia.code, "not-in-room");
   assert.equal(created.room.players.length, 1);
 
+  const moved = await command(host, {
+    type: "change-seat",
+    playerId: "host",
+    position: "east",
+  });
+  assert.equal(
+    moved.room.players.find((player) => player.id === "host").position,
+    "east",
+  );
+
   const rejected = await command(stranger, {
     type: "join-room",
     playerId: "stranger",
@@ -180,7 +190,19 @@ test("creates, validates, synchronizes, and cleans up rooms", async () => {
     code: created.room.code,
   });
   assert.equal(joined.room.players.length, 2);
+  assert.equal(
+    joined.room.players.find((player) => player.id === "guest").position,
+    "south",
+  );
   assert.equal((await hostSawJoin).room.players.length, 2);
+
+  const occupiedSeat = await command(guest, {
+    type: "change-seat",
+    playerId: "guest",
+    position: "east",
+  });
+  assert.equal(occupiedSeat.type, "error");
+  assert.equal(occupiedSeat.code, "seat-occupied");
 
   const rejectedBotManagement = await command(guest, {
     type: "fill-with-bots",
