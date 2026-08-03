@@ -35,15 +35,17 @@ Open `http://localhost:8080`.
 The production image builds the React application and serves only the compiled
 files through Nginx. It also exposes `/health` for container health checks.
 
-## Planned services
+## Services
 
-The same Compose project will later include:
+The Compose project currently runs:
 
 - `web`: React browser client
-- `game-server`: authoritative game rules and real-time room state
+- `game-server`: authoritative WebSocket room and presence state
+
+Future gameplay infrastructure will include:
+
 - `postgres`: accounts, matches, and game history
 - `redis`: room presence and short-lived reconnect state
 - `livekit`: WebRTC video and voice
 
 All services will communicate through the private `shelem` Docker network.
-

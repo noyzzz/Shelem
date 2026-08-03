@@ -1,45 +1,20 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import {
+  gameClient,
+  type Player,
+  type Position,
+  type Room,
+} from "./gameClient";
 
 type Flow = "create" | "join";
 type Screen = "home" | "setup" | "lobby";
-type Position = "north" | "south" | "east" | "west";
-
-type Player = {
-  id: string;
-  name: string;
-  position: Position;
-  ready: boolean;
-};
-
-type Room = {
-  code: string;
-  players: Player[];
-};
 
 const positions: Position[] = ["south", "north", "west", "east"];
-const roomKey = (code: string) => `shelem-room:${code}`;
 const cleanRoomCode = (value: string) =>
   value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
 
 const getInviteCode = () =>
   cleanRoomCode(new URLSearchParams(window.location.search).get("room") ?? "");
-
-const readRoom = (code: string): Room | null => {
-  try {
-    const stored = window.localStorage.getItem(roomKey(code));
-    return stored ? (JSON.parse(stored) as Room) : null;
-  } catch {
-    return null;
-  }
-};
-
-const createRoomCode = () => {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from(
-    { length: 6 },
-    () => alphabet[Math.floor(Math.random() * alphabet.length)],
-  ).join("");
-};
 
 function Logo() {
   return (
@@ -52,11 +27,6 @@ function Logo() {
 
 export function App() {
   const inviteCode = getInviteCode();
-  const playerId = useRef(
-    window.crypto.randomUUID?.() ??
-      `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  );
-  const roomChannel = useRef<BroadcastChannel | null>(null);
   const [screen, setScreen] = useState<Screen>(
     inviteCode.length === 6 ? "setup" : "home",
   );
@@ -67,39 +37,38 @@ export function App() {
   const [roomInput, setRoomInput] = useState(inviteCode);
   const [roomCode, setRoomCode] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
-  const [ready, setReady] = useState(false);
   const [copied, setCopied] = useState(false);
   const [formError, setFormError] = useState("");
+  const [connectionStatus, setConnectionStatus] = useState("connecting");
+  const ready =
+    room?.players.find((player) => player.id === gameClient.playerId)?.ready ??
+    false;
 
   useEffect(() => {
-    if (screen !== "lobby" || !roomCode) return;
-
-    const syncRoom = () => {
-      const nextRoom = readRoom(roomCode);
-      if (nextRoom) setRoom(nextRoom);
-    };
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === roomKey(roomCode)) syncRoom();
-    };
-
-    window.addEventListener("storage", handleStorage);
-    if ("BroadcastChannel" in window) {
-      roomChannel.current = new BroadcastChannel(roomKey(roomCode));
-      roomChannel.current.addEventListener("message", syncRoom);
-    }
+    gameClient.connect();
+    const unsubscribeRoom = gameClient.subscribeToRoom((nextRoom) => {
+      if (!nextRoom) {
+        setRoom(null);
+        setRoomCode("");
+        setFormError("That room has expired. Create or join another table.");
+        setScreen("setup");
+        return;
+      }
+      setRoom(nextRoom);
+      setRoomCode(nextRoom.code);
+      if (
+        nextRoom.players.some((player) => player.id === gameClient.playerId)
+      ) {
+        setScreen("lobby");
+      }
+    });
+    const unsubscribeStatus = gameClient.subscribeToStatus(setConnectionStatus);
 
     return () => {
-      window.removeEventListener("storage", handleStorage);
-      roomChannel.current?.close();
-      roomChannel.current = null;
+      unsubscribeRoom();
+      unsubscribeStatus();
     };
-  }, [roomCode, screen]);
-
-  const persistRoom = (nextRoom: Room) => {
-    window.localStorage.setItem(roomKey(nextRoom.code), JSON.stringify(nextRoom));
-    setRoom(nextRoom);
-    roomChannel.current?.postMessage(nextRoom);
-  };
+  }, []);
 
   const begin = (nextFlow: Flow) => {
     setFlow(nextFlow);
@@ -107,103 +76,51 @@ export function App() {
     setScreen("setup");
   };
 
-  const enterLobby = (event: FormEvent<HTMLFormElement>) => {
+  const enterLobby = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const cleanName = name.trim();
     const cleanCode = roomInput.trim().toUpperCase();
 
     if (!cleanName || (flow === "join" && cleanCode.length !== 6)) return;
 
-    if (flow === "join") {
-      const existingRoom = readRoom(cleanCode);
-      if (!existingRoom) {
-        setFormError("That room does not exist. Check the code and try again.");
-        return;
-      }
+    try {
+      const nextRoom =
+        flow === "join"
+          ? await gameClient.joinRoom(cleanCode, cleanName)
+          : await gameClient.createRoom(cleanName);
+      if (!nextRoom) return;
 
-      const existingPlayer = existingRoom.players.find(
-        (player) => player.id === playerId.current,
+      setRoom(nextRoom);
+      setRoomCode(nextRoom.code);
+      setName(cleanName);
+      setFormError("");
+      setScreen("lobby");
+    } catch (error) {
+      setFormError(
+        error instanceof Error ? error.message : "Unable to join the room.",
       );
-      if (!existingPlayer && existingRoom.players.length >= 4) {
-        setFormError("That table is already full.");
-        return;
-      }
-
-      const nextRoom = existingPlayer
-        ? existingRoom
-        : {
-            ...existingRoom,
-            players: [
-              ...existingRoom.players,
-              {
-                id: playerId.current,
-                name: cleanName,
-                position: positions[existingRoom.players.length],
-                ready: false,
-              },
-            ],
-          };
-
-      window.localStorage.setItem(roomKey(cleanCode), JSON.stringify(nextRoom));
-      setRoom(nextRoom);
-      setRoomCode(cleanCode);
-    } else {
-      let nextCode = createRoomCode();
-      while (readRoom(nextCode)) nextCode = createRoomCode();
-
-      const nextRoom: Room = {
-        code: nextCode,
-        players: [
-          {
-            id: playerId.current,
-            name: cleanName,
-            position: "south",
-            ready: false,
-          },
-        ],
-      };
-      window.localStorage.setItem(roomKey(nextCode), JSON.stringify(nextRoom));
-      setRoom(nextRoom);
-      setRoomCode(nextCode);
     }
-
-    setName(cleanName);
-    setFormError("");
-    setScreen("lobby");
   };
 
-  const leaveRoom = () => {
-    if (room) {
-      const remainingPlayers = room.players.filter(
-        (player) => player.id !== playerId.current,
-      );
-      if (remainingPlayers.length) {
-        persistRoom({ ...room, players: remainingPlayers });
-      } else {
-        window.localStorage.removeItem(roomKey(room.code));
-        roomChannel.current?.postMessage(null);
-      }
+  const leaveRoom = async () => {
+    try {
+      await gameClient.leaveRoom();
+    } catch {
+      // Return home even if the server connection dropped.
     }
-
     window.history.replaceState({}, "", window.location.pathname);
     setRoom(null);
     setRoomCode("");
-    setReady(false);
     setScreen("home");
   };
 
-  const toggleReady = () => {
+  const toggleReady = async () => {
     if (!room) return;
-    const nextReady = !ready;
-    persistRoom({
-      ...room,
-      players: room.players.map((player) =>
-        player.id === playerId.current
-          ? { ...player, ready: nextReady }
-          : player,
-      ),
-    });
-    setReady(nextReady);
+    try {
+      await gameClient.setReady(!ready);
+    } catch {
+      // The connection indicator communicates transient server failures.
+    }
   };
 
   const copyInvite = async () => {
@@ -283,8 +200,14 @@ export function App() {
 
           <div className="lobby-footer">
             <div className="connection-note">
-              <span className="status-dot" />
-              Camera and microphone connect when the game starts
+              <span
+                className={`status-dot ${
+                  connectionStatus === "connected" ? "" : "is-offline"
+                }`}
+              />
+              {connectionStatus === "connected"
+                ? "Connected to the game server"
+                : "Reconnecting to the game server…"}
             </div>
             <button
               className={`ready-button ${ready ? "is-ready" : ""}`}
@@ -419,6 +342,7 @@ export function App() {
             <button
               className="primary form-submit"
               disabled={
+                connectionStatus !== "connected" ||
                 !name.trim() ||
                 (flow === "join" && roomInput.trim().length !== 6)
               }
@@ -451,7 +375,13 @@ function Seat({
       </div>
       <strong>{player?.name || "Open seat"}</strong>
       <small>
-        {player ? (player.ready ? "Ready" : "Not ready") : "Waiting…"}
+        {player
+          ? !player.connected
+            ? "Reconnecting…"
+            : player.ready
+              ? "Ready"
+              : "Not ready"
+          : "Waiting…"}
       </small>
     </div>
   );

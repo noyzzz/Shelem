@@ -10,6 +10,12 @@ COPY . .
 EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
+FROM dependencies AS game-server
+
+COPY server ./server
+EXPOSE 3001
+CMD ["npm", "run", "server"]
+
 FROM dependencies AS build
 
 COPY . .
@@ -23,4 +29,3 @@ EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -qO- http://127.0.0.1/health || exit 1
-

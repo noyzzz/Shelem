@@ -12,6 +12,27 @@ services:
       - web_node_modules:/app/node_modules
     environment:
       NODE_ENV: development
+      GAME_SERVER_URL: http://game-server:3001
+    depends_on:
+      game-server:
+        condition: service_healthy
+    networks:
+      - shelem
+
+  game-server:
+    build:
+      context: .
+      target: game-server
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     networks:
       - shelem
 
@@ -23,6 +44,9 @@ services:
       target: production
     ports:
       - "8080:80"
+    depends_on:
+      game-server:
+        condition: service_healthy
     networks:
       - shelem
 
@@ -32,4 +56,3 @@ volumes:
 networks:
   shelem:
     name: shelem
-

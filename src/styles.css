@@ -626,6 +626,11 @@ h1 {
   box-shadow: 0 0 0 4px rgb(117 193 142 / 10%);
 }
 
+.status-dot.is-offline {
+  background: #d4a45f;
+  box-shadow: 0 0 0 4px rgb(212 164 95 / 10%);
+}
+
 .ready-button {
   min-height: 44px;
   min-width: 130px;
