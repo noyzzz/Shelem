@@ -65,6 +65,8 @@ export type Match = {
     completedTrickCount: number;
     lastTrickWinnerId: string | null;
     resolvingTrickWinnerId: string | null;
+    trickReviewId: string | null;
+    trickReviewEndsAt: number | null;
     trickWins: Record<string, number>;
   } | null;
   result?: {
@@ -331,6 +333,10 @@ class GameClient {
 
   playCard(cardId: string) {
     return this.request({ type: "play-card", cardId });
+  }
+
+  acknowledgeTrickReview(reviewId: string) {
+    return this.request({ type: "acknowledge-trick-review", reviewId });
   }
 
   setNextHandReady(ready: boolean) {

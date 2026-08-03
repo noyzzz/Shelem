@@ -3,6 +3,7 @@ import {
   lazy,
   Suspense,
   useEffect,
+  useRef,
   useState,
   type ComponentType,
   type CSSProperties,
@@ -142,6 +143,7 @@ export function App() {
   const [seatChangePending, setSeatChangePending] =
     useState<Position | null>(null);
   const [connectionStatus, setConnectionStatus] = useState("connecting");
+  const acknowledgedTrickReviewIds = useRef(new Set<string>());
   const ready =
     room?.players.find((player) => player.id === gameClient.playerId)?.ready ??
     false;
@@ -208,6 +210,27 @@ export function App() {
     room?.match?.play?.currentTurnPlayerId,
     room?.match?.yourHand,
     selectedPlayCardId,
+  ]);
+
+  useEffect(() => {
+    const reviewId = room?.match?.play?.trickReviewId;
+    if (
+      room?.match?.phase !== "playing" ||
+      room.match.play?.currentTrick.length !== 4 ||
+      !reviewId ||
+      acknowledgedTrickReviewIds.current.has(reviewId)
+    ) {
+      return;
+    }
+
+    acknowledgedTrickReviewIds.current.add(reviewId);
+    void gameClient.acknowledgeTrickReview(reviewId).catch(() => {
+      acknowledgedTrickReviewIds.current.delete(reviewId);
+    });
+  }, [
+    room?.match?.phase,
+    room?.match?.play?.currentTrick.length,
+    room?.match?.play?.trickReviewId,
   ]);
 
   const begin = (nextFlow: Flow) => {

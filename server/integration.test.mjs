@@ -117,6 +117,7 @@ before(async () => {
       BOT_ACTION_DELAY_MS: "1",
       GROUND_REVEAL_MS: "5",
       TRICK_DISPLAY_MS: "5",
+      TRICK_ACK_WAIT_MS: "50",
       LIVEKIT_API_KEY: "devkey",
       LIVEKIT_API_SECRET: "secret",
       LIVEKIT_URL: "ws://127.0.0.1:7880",
@@ -655,6 +656,22 @@ test("starts a four-player hand and deals private cards", async () => {
         winnerId,
       );
       assert.equal(response.room.match.play.currentTrick.length, 4);
+      const reviewId = response.room.match.play.trickReviewId;
+      assert.equal(typeof reviewId, "string");
+      for (const [clientIndex, client] of clients.entries()) {
+        response = await command(client, {
+          type: "acknowledge-trick-review",
+          playerId: playerIds[clientIndex],
+          reviewId,
+        });
+        if (clientIndex < clients.length - 1) {
+          assert.equal(response.room.match.play.trickReviewEndsAt, null);
+        }
+      }
+      assert.equal(
+        typeof response.room.match.play.trickReviewEndsAt,
+        "number",
+      );
       response = await waitForMessage(
         clientByPlayerId.get(currentPlayerId),
         (message) =>

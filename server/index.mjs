@@ -9,6 +9,7 @@ const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 60_000);
 const botActionDelayMs = Number(process.env.BOT_ACTION_DELAY_MS ?? 350);
 const groundRevealMs = Number(process.env.GROUND_REVEAL_MS ?? 6_000);
 const trickDisplayMs = Number(process.env.TRICK_DISPLAY_MS ?? 5_000);
+const trickAckWaitMs = Number(process.env.TRICK_ACK_WAIT_MS ?? 1_500);
 const isProduction = process.env.NODE_ENV === "production";
 const livekitApiKey =
   process.env.LIVEKIT_API_KEY ?? (isProduction ? undefined : "devkey");
@@ -112,6 +113,8 @@ const serializeRoom = (room, viewerId) => ({
                 lastTrickWinnerId: room.match.play.lastTrickWinnerId,
                 resolvingTrickWinnerId:
                   room.match.play.resolvingTrickWinnerId,
+                trickReviewId: room.match.play.trickReviewId,
+                trickReviewEndsAt: room.match.play.trickReviewEndsAt,
                 trickWins: Object.fromEntries(
                   [...room.players.keys()].map((playerId) => [
                     playerId,
@@ -308,6 +311,9 @@ const completeGroundPhase = (room, playerId, discardIds) => {
     completedTricks: [],
     lastTrickWinnerId: null,
     resolvingTrickWinnerId: null,
+    trickReviewId: null,
+    trickReviewEndsAt: null,
+    trickReviewSeenPlayerIds: new Set(),
   };
   room.match.phase = "playing";
 };
@@ -331,34 +337,67 @@ const playCardForPlayer = (room, playerId, card) => {
     );
     play.currentTurnPlayerId = null;
     play.resolvingTrickWinnerId = winnerId;
+    play.trickReviewId = `${room.code}-${room.match.handNumber}-${
+      play.completedTricks.length + 1
+    }`;
+    play.trickReviewEndsAt = null;
+    play.trickReviewSeenPlayerIds = new Set();
     clearTimeout(room.trickDisplayTimer);
-    room.trickDisplayTimer = setTimeout(() => {
-      if (
-        room.match?.phase !== "playing" ||
-        room.match.play !== play ||
-        play.currentTrick.length !== 4 ||
-        play.resolvingTrickWinnerId !== winnerId
-      ) {
-        return;
+    clearTimeout(room.trickAckTimer);
+    const reviewId = play.trickReviewId;
+    room.trickAckTimer = setTimeout(() => {
+      if (startTrickReviewTimer(room, play, winnerId, reviewId)) {
+        broadcastRoom(room);
       }
-      play.completedTricks.push({
-        number: play.completedTricks.length + 1,
-        winnerId,
-        cards: play.currentTrick,
-      });
-      play.currentTrick = [];
-      play.lastTrickWinnerId = winnerId;
-      play.resolvingTrickWinnerId = null;
-      if (play.completedTricks.length === 12) {
-        scoreCompletedHand(room);
-      } else {
-        play.currentTurnPlayerId = winnerId;
-      }
-      broadcastRoom(room);
-    }, trickDisplayMs);
+    }, trickAckWaitMs);
   } else {
     play.currentTurnPlayerId = nextPlayerClockwise(room, playerId).id;
   }
+};
+
+const startTrickReviewTimer = (room, play, winnerId, reviewId) => {
+  if (
+    room.match?.phase !== "playing" ||
+    room.match.play !== play ||
+    play.currentTrick.length !== 4 ||
+    play.resolvingTrickWinnerId !== winnerId ||
+    play.trickReviewId !== reviewId ||
+    play.trickReviewEndsAt !== null
+  ) {
+    return false;
+  }
+
+  clearTimeout(room.trickAckTimer);
+  play.trickReviewEndsAt = Date.now() + trickDisplayMs;
+  room.trickDisplayTimer = setTimeout(() => {
+    if (
+      room.match?.phase !== "playing" ||
+      room.match.play !== play ||
+      play.currentTrick.length !== 4 ||
+      play.resolvingTrickWinnerId !== winnerId ||
+      play.trickReviewId !== reviewId
+    ) {
+      return;
+    }
+    play.completedTricks.push({
+      number: play.completedTricks.length + 1,
+      winnerId,
+      cards: play.currentTrick,
+    });
+    play.currentTrick = [];
+    play.lastTrickWinnerId = winnerId;
+    play.resolvingTrickWinnerId = null;
+    play.trickReviewId = null;
+    play.trickReviewEndsAt = null;
+    play.trickReviewSeenPlayerIds.clear();
+    if (play.completedTricks.length === 12) {
+      scoreCompletedHand(room);
+    } else {
+      play.currentTurnPlayerId = winnerId;
+    }
+    broadcastRoom(room);
+  }, trickDisplayMs);
+  return true;
 };
 
 const scoreCompletedHand = (room) => {
@@ -1006,6 +1045,44 @@ webSocketServer.on("connection", (socket) => {
       }
 
       completeGroundPhase(room, playerId, discardIds);
+      broadcastRoom(room, requestId, socket);
+      return;
+    }
+
+    if (message.type === "acknowledge-trick-review") {
+      const play = room.match?.play;
+      if (
+        room.match?.phase !== "playing" ||
+        !play ||
+        play.currentTrick.length !== 4 ||
+        typeof message.reviewId !== "string" ||
+        play.trickReviewId !== message.reviewId
+      ) {
+        sendError(
+          socket,
+          requestId,
+          "trick-review-closed",
+          "That trick is no longer being reviewed.",
+        );
+        return;
+      }
+
+      play.trickReviewSeenPlayerIds.add(playerId);
+      const connectedHumanPlayerIds = [...room.players.values()]
+        .filter((candidate) => candidate.connected && !candidate.isBot)
+        .map((candidate) => candidate.id);
+      const everyoneHasSeenTheTrick = connectedHumanPlayerIds.every(
+        (candidateId) => play.trickReviewSeenPlayerIds.has(candidateId),
+      );
+      if (everyoneHasSeenTheTrick) {
+        startTrickReviewTimer(
+          room,
+          play,
+          play.resolvingTrickWinnerId,
+          play.trickReviewId,
+        );
+      }
+
       broadcastRoom(room, requestId, socket);
       return;
     }
