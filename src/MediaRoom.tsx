@@ -8,6 +8,7 @@ import {
   RoomEvent,
   Track,
   VideoTrack,
+  VideoPresets,
 } from "livekit-client";
 import { gameClient, type Player } from "./gameClient";
 
@@ -16,6 +17,10 @@ type MediaRoomProps = {
 };
 
 const CAMERA_DEVICE_KEY = "shelem-camera-device-id";
+const CAMERA_CAPTURE_DEFAULTS = {
+  frameRate: 15,
+  resolution: VideoPresets.h360.resolution,
+};
 
 const getRememberedCamera = () => {
   try {
@@ -135,12 +140,9 @@ export function MediaRoom({ players }: MediaRoomProps) {
     try {
       const credentials = await gameClient.requestMediaToken();
       const room = new Room({
-        // Four small video feeds are inexpensive enough to keep subscribed.
-        // This avoids mobile browsers pausing a tile before it becomes visible.
-        adaptiveStream: false,
-        // A Shelem room has at most four publishers. Keeping every camera
-        // active makes local previews predictable while players join.
-        dynacast: false,
+        adaptiveStream: true,
+        dynacast: true,
+        videoCaptureDefaults: CAMERA_CAPTURE_DEFAULTS,
       });
       roomRef.current = room;
 
@@ -235,10 +237,12 @@ export function MediaRoom({ players }: MediaRoomProps) {
             true,
           );
           await room.localParticipant.setCameraEnabled(true, {
+            ...CAMERA_CAPTURE_DEFAULTS,
             deviceId: { exact: camera.deviceId },
           });
         } else {
           await room.localParticipant.setCameraEnabled(true, {
+            ...CAMERA_CAPTURE_DEFAULTS,
             facingMode: "user",
           });
         }
@@ -404,11 +408,17 @@ function ParticipantVideo({
 
   return (
     <div className="media-participant">
-      <div className={`media-video ${cameraOn ? "has-video" : ""}`}>
+      <div
+        className={`media-video ${
+          cameraOn && !seatVideoRoot ? "has-video" : ""
+        }`}
+      >
         {/* Audio tracks are attached separately, so every video element can
             stay muted and satisfy mobile autoplay policies. */}
-        <TrackVideo isLocal={participant.isLocal} track={videoTrack} />
-        {!cameraOn && <span>{initials(name)}</span>}
+        {cameraOn && !seatVideoRoot && (
+          <TrackVideo isLocal={participant.isLocal} track={videoTrack} />
+        )}
+        {(!cameraOn || seatVideoRoot) && <span>{initials(name)}</span>}
       </div>
       <div>
         <strong>

@@ -157,6 +157,14 @@ export function App() {
   const isGroundWinner =
     room?.match?.bidding.winnerId === gameClient.playerId;
   const turnContext = getTurnContext(room);
+  const isFocusedAction =
+    (room?.match?.phase === "ground" && isGroundWinner) ||
+    (room?.match?.phase === "playing" &&
+      room.match.play?.currentTurnPlayerId === gameClient.playerId);
+  const selectedDiscardCards =
+    room?.match?.yourHand.filter((card) =>
+      selectedDiscardIds.includes(card.id),
+    ) ?? [];
 
   useEffect(() => {
     gameClient.connect(inviteCode || undefined);
@@ -415,7 +423,9 @@ export function App() {
   if (screen === "lobby") {
     return (
       <main
-        className={`lobby-shell ${room?.match ? "is-match-active" : ""}`}
+        className={`lobby-shell ${room?.match ? "is-match-active" : ""} ${
+          isFocusedAction ? "is-focused-action" : ""
+        }`}
       >
         <header className="lobby-header">
           <Logo />
@@ -692,8 +702,9 @@ export function App() {
             room.match.bidding.winnerId === gameClient.playerId && (
               <GroundPanel
                 actionError={actionError}
+                onRemoveCard={toggleDiscard}
                 onSubmit={completeGround}
-                selectedCount={selectedDiscardIds.length}
+                selectedCards={selectedDiscardCards}
               />
             )}
           {room?.match?.phase === "hand-results" && (
@@ -1030,13 +1041,16 @@ function GroundRevealPanel({ cards }: { cards: Card[] }) {
 
 function GroundPanel({
   actionError,
+  onRemoveCard,
   onSubmit,
-  selectedCount,
+  selectedCards,
 }: {
   actionError: string;
+  onRemoveCard: (cardId: string) => void;
   onSubmit: () => void;
-  selectedCount: number;
+  selectedCards: Card[];
 }) {
+  const selectedCount = selectedCards.length;
   return (
     <section className="ground-panel" aria-label="Ground discard">
       <div>
@@ -1045,6 +1059,21 @@ function GroundPanel({
           Select four cards to discard. Your opening card will establish trump.
         </p>
       </div>
+      {selectedCards.length > 0 && (
+        <div className="selected-discards" aria-label="Selected discards">
+          {selectedCards.map((card) => (
+            <button
+              aria-label={`Remove ${card.rank} of ${card.suit} from discards`}
+              key={card.id}
+              onClick={() => onRemoveCard(card.id)}
+              type="button"
+            >
+              <CardFace card={card} className="card-face" />
+              <span aria-hidden="true">×</span>
+            </button>
+          ))}
+        </div>
+      )}
       <button
         className="primary ground-submit"
         disabled={selectedCount !== 4}
@@ -1358,6 +1387,8 @@ function Hand({
           const fanStyle = {
             "--fan-angle": `${distanceFromCenter * fanAngleStep}deg`,
             "--fan-drop": `${Math.abs(distanceFromCenter) * fanDropStep}px`,
+            "--fan-compact-angle": `${distanceFromCenter * 0.7}deg`,
+            "--fan-compact-drop": `${Math.abs(distanceFromCenter) * 1.1}px`,
             zIndex: selected ? sortedCards.length + 2 : index + 1,
           } as CSSProperties;
           return (

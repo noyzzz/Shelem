@@ -729,6 +729,49 @@ h1 {
   font-size: 11px;
 }
 
+.is-focused-action .lobby-header {
+  min-height: 58px;
+}
+
+.is-focused-action .lobby-header .player-identity,
+.is-focused-action .lobby-header .room-label,
+.is-focused-action .logo strong,
+.is-focused-action .lobby-title {
+  display: none;
+}
+
+.is-focused-action .lobby-content {
+  padding-top: 18px;
+}
+
+.is-focused-action .turn-banner {
+  min-height: 52px;
+  margin-top: 0;
+  padding-block: 8px;
+}
+
+.is-focused-action .media-room {
+  width: min(820px, 100%);
+  margin-top: 7px;
+  padding: 7px 10px;
+}
+
+.is-focused-action .media-room-heading {
+  gap: 8px;
+}
+
+.is-focused-action .media-room-heading small,
+.is-focused-action .media-participants,
+.is-focused-action .media-camera-picker {
+  display: none;
+}
+
+.is-focused-action .media-controls button {
+  min-height: 30px;
+  padding-inline: 9px;
+  font-size: 10px;
+}
+
 .turn-banner small {
   color: #8fa69b;
   font-size: 9px;
@@ -762,6 +805,23 @@ h1 {
   height: 500px;
   margin: 25px auto 0;
   position: relative;
+}
+
+.is-focused-action .table-wrap {
+  width: min(960px, 100%);
+  height: 570px;
+  margin-top: 10px;
+}
+
+.is-focused-action .card-table {
+  width: 68%;
+  height: 62%;
+  top: 19%;
+  left: 16%;
+}
+
+.is-focused-action .table-played-card {
+  width: clamp(64px, 8vw, 78px);
 }
 
 .card-table {
@@ -1324,7 +1384,7 @@ h1 {
   font-size: 12px;
 }
 
-.hand-cards {
+  .hand-cards {
   min-height: 145px;
   display: flex;
   align-items: flex-start;
@@ -1458,6 +1518,42 @@ h1 {
 
 .ground-panel > div {
   margin-right: auto;
+}
+
+.ground-panel .selected-discards {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+}
+
+.selected-discards button {
+  width: 34px;
+  aspect-ratio: 5 / 7;
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid rgb(239 201 120 / 72%);
+  border-radius: 6px;
+  background: #f7f0df;
+  box-shadow: 0 5px 12px rgb(0 0 0 / 22%);
+  cursor: pointer;
+}
+
+.selected-discards button > span {
+  width: 15px;
+  height: 15px;
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  display: grid;
+  place-items: center;
+  border-radius: 0 4px 0 8px;
+  color: #fff;
+  background: #9b463f;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .ground-panel strong {
@@ -1897,6 +1993,33 @@ h1 {
     height: 440px;
   }
 
+  .is-focused-action .table-wrap {
+    height: 460px;
+  }
+
+  .is-focused-action .card-table {
+    width: 82%;
+    height: 60%;
+    top: 20%;
+    left: 9%;
+  }
+
+  .is-focused-action .hand-cards {
+    min-height: 145px;
+  }
+
+  .is-focused-action .playing-card {
+    width: 58px;
+    flex-basis: 58px;
+    margin-left: -25px;
+  }
+
+  .is-focused-action .hand-cards.is-large-hand .playing-card {
+    width: 50px;
+    flex-basis: 50px;
+    margin-left: -28px;
+  }
+
   .card-table {
     width: 78%;
     left: 11%;
@@ -1919,7 +2042,7 @@ h1 {
     justify-content: flex-end;
   }
 
-  .hand-cards {
+.hand-cards {
     min-height: 125px;
     padding-inline: 8px;
   }
@@ -1987,6 +2110,21 @@ h1 {
   .bid-actions {
     flex-wrap: wrap;
   }
+}
+
+.is-focused-action .hand-panel {
+  width: min(1040px, 100%);
+  margin-top: 8px;
+  padding: 12px 14px;
+}
+
+.is-focused-action .hand-cards {
+  min-height: 165px;
+}
+
+.is-focused-action .playing-card {
+  width: clamp(64px, 7.8vw, 90px);
+  flex-basis: clamp(64px, 7.8vw, 90px);
 }
 
 @media (max-width: 500px) {
@@ -2203,6 +2341,17 @@ h1 {
     margin-top: 8px;
   }
 
+  .is-focused-action .table-wrap {
+    height: 400px;
+  }
+
+  .is-focused-action .card-table {
+    width: 78%;
+    height: 58%;
+    top: 21%;
+    left: 11%;
+  }
+
   .is-match-active .hand-panel {
     margin-top: 7px;
     padding-top: 9px;
@@ -2216,6 +2365,34 @@ h1 {
   .is-match-active .hand-cards {
     min-height: 100px;
     padding-bottom: 8px;
+  }
+
+  .is-focused-action .hand-cards {
+    min-height: 125px;
+  }
+
+  .is-focused-action .playing-card {
+    width: 56px;
+    flex-basis: 56px;
+    margin-left: -31px;
+    transform: translateY(var(--fan-compact-drop, 0))
+      rotate(var(--fan-compact-angle, 0deg));
+  }
+
+  .is-focused-action .playing-card:not(:disabled):hover {
+    transform: translateY(calc(var(--fan-compact-drop, 0px) - 12px))
+      rotate(var(--fan-compact-angle, 0deg));
+  }
+
+  .is-focused-action .playing-card.is-selected {
+    transform: translateY(calc(var(--fan-compact-drop, 0px) - 18px))
+      rotate(var(--fan-compact-angle, 0deg)) scale(1.13);
+  }
+
+  .is-focused-action .hand-cards.is-large-hand .playing-card {
+    width: 48px;
+    flex-basis: 48px;
+    margin-left: -31px;
   }
 
   .is-match-active .bidding-panel,
@@ -2260,4 +2437,20 @@ h1 {
     width: 38px;
     flex-basis: 38px;
   }
+
+  .is-focused-action .playing-card {
+    width: 46px;
+    flex-basis: 46px;
+    margin-left: -24px;
+  }
+
+  .is-focused-action .hand-cards.is-large-hand .playing-card {
+    width: 40px;
+    flex-basis: 40px;
+    margin-left: -22px;
+  }
+}
+
+.is-focused-action .playing-card:first-child {
+  margin-left: 0;
 }
