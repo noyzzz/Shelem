@@ -6,7 +6,8 @@ import { calculateHandScore, cardPoints } from "./gameRules.mjs";
 const port = Number(process.env.PORT ?? 3001);
 const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 60_000);
 const botActionDelayMs = Number(process.env.BOT_ACTION_DELAY_MS ?? 350);
-const groundRevealMs = Number(process.env.GROUND_REVEAL_MS ?? 4_000);
+const groundRevealMs = Number(process.env.GROUND_REVEAL_MS ?? 6_000);
+const trickDisplayMs = Number(process.env.TRICK_DISPLAY_MS ?? 5_000);
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const positions = ["south", "west", "north", "east"];
 const suits = ["clubs", "diamonds", "hearts", "spades"];
@@ -100,6 +101,8 @@ const serializeRoom = (room, viewerId) => ({
                 currentTrick: room.match.play.currentTrick,
                 completedTrickCount: room.match.play.completedTricks.length,
                 lastTrickWinnerId: room.match.play.lastTrickWinnerId,
+                resolvingTrickWinnerId:
+                  room.match.play.resolvingTrickWinnerId,
                 trickWins: Object.fromEntries(
                   [...room.players.keys()].map((playerId) => [
                     playerId,
@@ -285,7 +288,7 @@ const determineTrickWinner = (trick, trump) => {
   ).playerId;
 };
 
-const completeGroundPhase = (room, playerId, discardIds, trump) => {
+const completeGroundPhase = (room, playerId, discardIds) => {
   const discardIdSet = new Set(discardIds);
   const hand = room.match.hands.get(playerId);
   room.match.discarded = hand.filter((card) => discardIdSet.has(card.id));
@@ -293,12 +296,13 @@ const completeGroundPhase = (room, playerId, discardIds, trump) => {
     playerId,
     hand.filter((card) => !discardIdSet.has(card.id)),
   );
-  room.match.trump = trump;
+  room.match.trump = null;
   room.match.play = {
     currentTurnPlayerId: playerId,
     currentTrick: [],
     completedTricks: [],
     lastTrickWinnerId: null,
+    resolvingTrickWinnerId: null,
   };
   room.match.phase = "playing";
 };
@@ -306,6 +310,9 @@ const completeGroundPhase = (room, playerId, discardIds, trump) => {
 const playCardForPlayer = (room, playerId, card) => {
   const play = room.match.play;
   const hand = room.match.hands.get(playerId);
+  if (play.completedTricks.length === 0 && play.currentTrick.length === 0) {
+    room.match.trump = card.suit;
+  }
   room.match.hands.set(
     playerId,
     hand.filter((candidate) => candidate.id !== card.id),
@@ -317,18 +324,33 @@ const playCardForPlayer = (room, playerId, card) => {
       play.currentTrick,
       room.match.trump,
     );
-    play.completedTricks.push({
-      number: play.completedTricks.length + 1,
-      winnerId,
-      cards: play.currentTrick,
-    });
-    play.currentTrick = [];
-    play.lastTrickWinnerId = winnerId;
-    play.currentTurnPlayerId = winnerId;
-    if (play.completedTricks.length === 12) {
-      play.currentTurnPlayerId = null;
-      scoreCompletedHand(room);
-    }
+    play.currentTurnPlayerId = null;
+    play.resolvingTrickWinnerId = winnerId;
+    clearTimeout(room.trickDisplayTimer);
+    room.trickDisplayTimer = setTimeout(() => {
+      if (
+        room.match?.phase !== "playing" ||
+        room.match.play !== play ||
+        play.currentTrick.length !== 4 ||
+        play.resolvingTrickWinnerId !== winnerId
+      ) {
+        return;
+      }
+      play.completedTricks.push({
+        number: play.completedTricks.length + 1,
+        winnerId,
+        cards: play.currentTrick,
+      });
+      play.currentTrick = [];
+      play.lastTrickWinnerId = winnerId;
+      play.resolvingTrickWinnerId = null;
+      if (play.completedTricks.length === 12) {
+        scoreCompletedHand(room);
+      } else {
+        play.currentTurnPlayerId = winnerId;
+      }
+      broadcastRoom(room);
+    }, trickDisplayMs);
   } else {
     play.currentTurnPlayerId = nextPlayerClockwise(room, playerId).id;
   }
@@ -431,10 +453,7 @@ const chooseBotGround = (room, playerId) => {
         (ranks.length - ranks.indexOf(right.rank)))
     );
   });
-  return {
-    trump,
-    discardIds: weakestFirst.slice(0, 4).map((card) => card.id),
-  };
+  return { discardIds: weakestFirst.slice(0, 4).map((card) => card.id) };
 };
 
 const chooseBotCard = (room, playerId) => {
@@ -443,7 +462,24 @@ const chooseBotCard = (room, playerId) => {
   const leadSuit = play.currentTrick[0]?.card.suit;
   let legalCards = hand;
   if (play.completedTricks.length === 0 && play.currentTrick.length === 0) {
-    legalCards = hand.filter((card) => card.suit === room.match.trump);
+    const strongestSuit = suits.reduce((best, suit) => {
+      const strength = hand
+        .filter((card) => card.suit === suit)
+        .reduce(
+          (total, card) =>
+            total + cardPoints(card) + ranks.length - ranks.indexOf(card.rank),
+          0,
+        );
+      const bestStrength = hand
+        .filter((card) => card.suit === best)
+        .reduce(
+          (total, card) =>
+            total + cardPoints(card) + ranks.length - ranks.indexOf(card.rank),
+          0,
+        );
+      return strength > bestStrength ? suit : best;
+    });
+    legalCards = hand.filter((card) => card.suit === strongestSuit);
   } else if (leadSuit && hand.some((card) => card.suit === leadSuit)) {
     legalCards = hand.filter((card) => card.suit === leadSuit);
   }
@@ -484,8 +520,8 @@ const runBotTurn = (room) => {
   if (match.phase === "ground") {
     const player = room.players.get(match.bidding.winnerId);
     if (!player?.isBot) return;
-    const { discardIds, trump } = chooseBotGround(room, player.id);
-    completeGroundPhase(room, player.id, discardIds, trump);
+    const { discardIds } = chooseBotGround(room, player.id);
+    completeGroundPhase(room, player.id, discardIds);
     broadcastRoom(room);
     return;
   }
@@ -824,7 +860,7 @@ webSocketServer.on("connection", (socket) => {
           socket,
           requestId,
           "not-winning-bidder",
-          "Only the winning bidder can discard and declare trump.",
+          "Only the winning bidder can discard the ground.",
         );
         return;
       }
@@ -833,11 +869,7 @@ webSocketServer.on("connection", (socket) => {
         ? message.discardIds.filter((id) => typeof id === "string")
         : [];
       const uniqueDiscardIds = new Set(discardIds);
-      const trump = typeof message.trump === "string" ? message.trump : "";
       const hand = room.match.hands.get(playerId);
-      const remainingHand = hand.filter(
-        (card) => !uniqueDiscardIds.has(card.id),
-      );
       if (
         discardIds.length !== 4 ||
         uniqueDiscardIds.size !== 4 ||
@@ -851,26 +883,8 @@ webSocketServer.on("connection", (socket) => {
         );
         return;
       }
-      if (!suits.includes(trump)) {
-        sendError(
-          socket,
-          requestId,
-          "invalid-trump",
-          "Choose a valid trump suit.",
-        );
-        return;
-      }
-      if (!remainingHand.some((card) => card.suit === trump)) {
-        sendError(
-          socket,
-          requestId,
-          "invalid-trump",
-          "Keep at least one card in the trump suit for the opening lead.",
-        );
-        return;
-      }
 
-      completeGroundPhase(room, playerId, discardIds, trump);
+      completeGroundPhase(room, playerId, discardIds);
       broadcastRoom(room, requestId, socket);
       return;
     }
@@ -905,20 +919,6 @@ webSocketServer.on("connection", (socket) => {
           requestId,
           "invalid-card",
           "That card is not in your hand.",
-        );
-        return;
-      }
-
-      if (
-        play.completedTricks.length === 0 &&
-        play.currentTrick.length === 0 &&
-        card.suit !== room.match.trump
-      ) {
-        sendError(
-          socket,
-          requestId,
-          "trump-lead-required",
-          "The bidder must lead the first trick with a trump card.",
         );
         return;
       }

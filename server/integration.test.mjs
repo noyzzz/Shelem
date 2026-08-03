@@ -116,6 +116,7 @@ before(async () => {
       RECONNECT_GRACE_MS: "50",
       BOT_ACTION_DELAY_MS: "1",
       GROUND_REVEAL_MS: "5",
+      TRICK_DISPLAY_MS: "5",
     },
     stdio: "ignore",
   });
@@ -246,14 +247,10 @@ test("one human can complete a hand with three bots", async () => {
       match.bidding.winnerId === playerId
     ) {
       const discardIds = match.yourHand.slice(0, 4).map((card) => card.id);
-      const retainedCards = match.yourHand.filter(
-        (card) => !discardIds.includes(card.id),
-      );
       state = await command(host, {
         type: "complete-ground",
         playerId,
         discardIds,
-        trump: retainedCards[0].suit,
       });
       continue;
     }
@@ -429,7 +426,6 @@ test("starts a four-player hand and deals private cards", async () => {
     type: "complete-ground",
     playerId: "south",
     discardIds: [],
-    trump: "hearts",
   });
   assert.equal(wrongPlayer.code, "not-winning-bidder");
 
@@ -437,7 +433,6 @@ test("starts a four-player hand and deals private cards", async () => {
     type: "complete-ground",
     playerId: "north",
     discardIds: northGround.room.match.yourHand.slice(0, 3).map((card) => card.id),
-    trump: "hearts",
   });
   assert.equal(invalidDiscard.code, "invalid-discard");
 
@@ -447,20 +442,16 @@ test("starts a four-player hand and deals private cards", async () => {
   const discardedCards = northGround.room.match.yourHand.filter((card) =>
     discardIds.includes(card.id),
   );
-  const retainedCards = northGround.room.match.yourHand.filter(
-    (card) => !discardIds.includes(card.id),
-  );
-  const trump = retainedCards[0].suit;
+  let trump = null;
   const completedGround = await command(clients[2], {
     type: "complete-ground",
     playerId: "north",
     discardIds,
-    trump,
   });
   assert.equal(completedGround.room.match.phase, "playing");
   assert.equal(completedGround.room.match.yourHand.length, 12);
   assert.equal(completedGround.room.match.discardCount, 4);
-  assert.equal(completedGround.room.match.trump, trump);
+  assert.equal(completedGround.room.match.trump, null);
   assert.equal("discarded" in completedGround.room.match, false);
 
   const eastPlaying = await waitForMessage(
@@ -469,7 +460,7 @@ test("starts a four-player hand and deals private cards", async () => {
   );
   assert.equal(eastPlaying.room.match.yourHand.length, 12);
   assert.equal(eastPlaying.room.match.discardCount, 4);
-  assert.equal(eastPlaying.room.match.trump, trump);
+  assert.equal(eastPlaying.room.match.trump, null);
   assert.equal("discarded" in eastPlaying.room.match, false);
 
   const clientByPlayerId = new Map(
@@ -530,7 +521,7 @@ test("starts a four-player hand and deals private cards", async () => {
     const leadSuit = play.currentTrick[0]?.card.suit;
     let legalCards = hand;
     if (play.completedTrickCount === 0 && play.currentTrick.length === 0) {
-      legalCards = hand.filter((card) => card.suit === trump);
+      legalCards = hand;
     } else if (leadSuit && hand.some((card) => card.suit === leadSuit)) {
       legalCards = hand.filter((card) => card.suit === leadSuit);
     }
@@ -556,11 +547,15 @@ test("starts a four-player hand and deals private cards", async () => {
       play.currentTrick.length === 3
         ? [...play.currentTrick, { playerId: currentPlayerId, card }]
         : null;
-    const response = await command(clientByPlayerId.get(currentPlayerId), {
+    let response = await command(clientByPlayerId.get(currentPlayerId), {
       type: "play-card",
       playerId: currentPlayerId,
       cardId: card.id,
     });
+    if (playIndex === 0) {
+      trump = card.suit;
+      assert.equal(response.room.match.trump, trump);
+    }
     hands.set(
       currentPlayerId,
       hand.filter((candidate) => candidate.id !== card.id),
@@ -568,6 +563,18 @@ test("starts a four-player hand and deals private cards", async () => {
 
     if (completedTrick) {
       const winnerId = expectedWinner(completedTrick);
+      assert.equal(
+        response.room.match.play.resolvingTrickWinnerId,
+        winnerId,
+      );
+      assert.equal(response.room.match.play.currentTrick.length, 4);
+      response = await waitForMessage(
+        clientByPlayerId.get(currentPlayerId),
+        (message) =>
+          message.room?.match?.phase === "hand-results" ||
+          message.room?.match?.play?.completedTrickCount ===
+            play.completedTrickCount + 1,
+      );
       assert.equal(
         response.room.match.play.lastTrickWinnerId,
         winnerId,

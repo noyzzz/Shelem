@@ -48,7 +48,6 @@ export function App() {
   const [actionError, setActionError] = useState("");
   const [bidAmount, setBidAmount] = useState(105);
   const [selectedDiscardIds, setSelectedDiscardIds] = useState<string[]>([]);
-  const [trump, setTrump] = useState<Card["suit"]>("clubs");
   const [connectionStatus, setConnectionStatus] = useState("connecting");
   const ready =
     room?.players.find((player) => player.id === gameClient.playerId)?.ready ??
@@ -199,7 +198,7 @@ export function App() {
 
   const completeGround = async () => {
     try {
-      await gameClient.completeGround(selectedDiscardIds, trump);
+      await gameClient.completeGround(selectedDiscardIds);
       setSelectedDiscardIds([]);
       setActionError("");
     } catch (error) {
@@ -302,7 +301,7 @@ export function App() {
                 : room?.match?.phase === "ground-reveal"
                 ? "Everyone can see the four zamin cards before the bidder takes them."
                 : room?.match?.phase === "ground"
-                ? "The winning bidder will take the zamin and declare trump."
+                ? "The winning bidder will discard four cards before leading."
                 : room?.match?.phase === "hand-results"
                   ? room.match.result?.shelem
                     ? "Shelem! All 165 points went to the bidding team."
@@ -310,7 +309,7 @@ export function App() {
                       ? "The bidding team made its contract."
                       : "The bidding team missed its contract."
                 : room?.match?.phase === "playing"
-                  ? "The bidder will lead the first trick with a trump card."
+                  ? "The bidder’s opening card establishes trump for the hand."
                 : room?.match
                 ? "Your hand is private. Bidding is now open."
                 : "Share the room code. The game begins when all four are ready."}
@@ -365,9 +364,17 @@ export function App() {
                     : room.match.phase === "hand-results"
                     ? `Team One ${room.match.result?.rawPoints.one} · Team Two ${room.match.result?.rawPoints.two}`
                     : room.match.phase === "playing"
-                    ? `Trick ${
-                        (room.match.play?.completedTrickCount ?? 0) + 1
-                      } of 12`
+                    ? room.match.play?.resolvingTrickWinnerId
+                      ? `${
+                          room.players.find(
+                            (player) =>
+                              player.id ===
+                              room.match?.play?.resolvingTrickWinnerId,
+                          )?.name ?? "The winner"
+                        } wins the trick`
+                      : `Trick ${
+                          (room.match.play?.completedTrickCount ?? 0) + 1
+                        } of 12`
                     : room.match.phase === "ground-reveal"
                     ? "The four zamin cards are revealed"
                     : room.match.phase === "ground"
@@ -392,7 +399,11 @@ export function App() {
                   : room?.match?.phase === "hand-results"
                   ? `Bid: ${room.match.result?.bid} · ${suitLabel(room.match.trump)} was trump`
                   : room?.match?.phase === "playing"
-                  ? `${suitLabel(room.match.trump)} is trump`
+                  ? room.match.play?.resolvingTrickWinnerId
+                    ? "Reviewing all four played cards"
+                    : room.match.trump
+                    ? `${suitLabel(room.match.trump)} is trump`
+                    : "The opening card will establish trump"
                   : room?.match?.phase === "ground-reveal"
                   ? "The bidder will receive them in a moment"
                   : room?.match?.phase === "ground"
@@ -450,8 +461,6 @@ export function App() {
                 actionError={actionError}
                 onSubmit={completeGround}
                 selectedCount={selectedDiscardIds.length}
-                setTrump={setTrump}
-                trump={trump}
               />
             )}
           {room?.match?.phase === "hand-results" && (
@@ -484,7 +493,7 @@ export function App() {
                   ? "Showing everyone the zamin"
                   : room.match.phase === "ground"
                   ? room.match.bidding.winnerId === gameClient.playerId
-                    ? "Choose four discards and trump"
+                    ? "Choose four cards to discard"
                     : "Waiting for the bidder"
                   : room.match.phase === "playing"
                     ? room.match.play?.currentTurnPlayerId ===
@@ -774,40 +783,26 @@ function GroundPanel({
   actionError,
   onSubmit,
   selectedCount,
-  setTrump,
-  trump,
 }: {
   actionError: string;
   onSubmit: () => void;
   selectedCount: number;
-  setTrump: (suit: Card["suit"]) => void;
-  trump: Card["suit"];
 }) {
   return (
-    <section className="ground-panel" aria-label="Ground and trump">
+    <section className="ground-panel" aria-label="Ground discard">
       <div>
         <strong>Prepare the hand</strong>
-        <p>Select exactly four cards to discard face down.</p>
+        <p>
+          Select four cards to discard. Your opening card will establish trump.
+        </p>
       </div>
-      <label>
-        Trump suit
-        <select
-          onChange={(event) => setTrump(event.target.value as Card["suit"])}
-          value={trump}
-        >
-          <option value="clubs">♣ Clubs</option>
-          <option value="diamonds">♦ Diamonds</option>
-          <option value="hearts">♥ Hearts</option>
-          <option value="spades">♠ Spades</option>
-        </select>
-      </label>
       <button
         className="primary ground-submit"
         disabled={selectedCount !== 4}
         onClick={onSubmit}
         type="button"
       >
-        Discard {selectedCount}/4 and declare
+        Discard {selectedCount}/4 and continue
       </button>
       {actionError && (
         <p className="action-error" role="alert">
@@ -1092,9 +1087,7 @@ function getPlayableCardIds(room: Room | null) {
   const currentTrick = room.match.play.currentTrick;
   if (currentTrick.length === 0) {
     return room.match.play.completedTrickCount === 0
-      ? hand
-          .filter((card) => card.suit === room.match?.trump)
-          .map((card) => card.id)
+      ? hand.map((card) => card.id)
       : hand.map((card) => card.id);
   }
 
@@ -1120,8 +1113,8 @@ function getTurnContext(room: Room | null): TurnContext | null {
   if (match.phase === "ground" && match.bidding.winnerId) {
     return {
       playerId: match.bidding.winnerId,
-      action: "Discard four cards and declare trump.",
-      seatLabel: "Choosing trump",
+      action: "Discard four cards before the opening lead.",
+      seatLabel: "Discarding",
     };
   }
 

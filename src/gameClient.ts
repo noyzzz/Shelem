@@ -64,6 +64,7 @@ export type Match = {
     currentTrick: Array<{ playerId: string; card: Card }>;
     completedTrickCount: number;
     lastTrickWinnerId: string | null;
+    resolvingTrickWinnerId: string | null;
     trickWins: Record<string, number>;
   } | null;
   result?: {
@@ -246,8 +247,8 @@ class GameClient {
     return this.request({ type: "pass-bid" });
   }
 
-  completeGround(discardIds: string[], trump: Card["suit"]) {
-    return this.request({ type: "complete-ground", discardIds, trump });
+  completeGround(discardIds: string[]) {
+    return this.request({ type: "complete-ground", discardIds });
   }
 
   playCard(cardId: string) {

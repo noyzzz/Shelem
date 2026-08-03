@@ -51,17 +51,19 @@ There are 165 available points in every hand.
 - The winning bidder takes the four ground cards into their hand.
 - The bidder discards any four cards face down.
 - The discarded cards count toward the bidder's team's captured points.
-- The bidder declares the trump suit.
+- Trump is not declared during the ground phase.
 
 ## Playing tricks
 
 - The bidder leads the first trick.
-- The bidder must lead with a trump card in the first trick.
+- The suit of the bidder's opening card becomes trump for the hand.
 - Players must follow the suit that was led when possible.
 - A player who cannot follow suit may play any card, including a trump.
 - The highest trump wins the trick if one or more trumps were played.
 - Otherwise, the highest card of the suit led wins.
 - The winner of a trick leads the next trick.
+- After the fourth card is played, the completed trick remains visible briefly
+  so every player can review it before the cards are cleared.
 
 ## Hand scoring
 
