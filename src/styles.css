@@ -710,25 +710,20 @@ h1 {
   margin-bottom: 14px;
 }
 
-.deck span {
+.deck > svg {
   width: 42px;
-  height: 57px;
+  height: auto;
   position: absolute;
-  display: grid;
-  place-items: center;
-  border-radius: 6px;
-  border: 1px solid #bd9b57;
-  color: #efc978;
-  background: #0b2d21;
-  font-family: Georgia, serif;
-  font-size: 24px;
+  display: block;
+  border-radius: 5px;
+  box-shadow: 0 5px 12px rgb(0 0 0 / 24%);
 }
 
-.deck span:nth-child(1) {
+.deck > svg:nth-child(1) {
   transform: rotate(-9deg) translate(-5px, 2px);
 }
 
-.deck span:nth-child(2) {
+.deck > svg:nth-child(2) {
   transform: rotate(7deg) translate(5px, 2px);
 }
 
@@ -808,31 +803,14 @@ h1 {
 .table-played-card {
   width: 43px;
   height: 56px;
-  display: grid;
-  place-items: center;
-  align-content: center;
+  display: block;
+  overflow: hidden;
+  padding: 0;
   border: 1px solid rgb(32 43 37 / 22%);
   border-radius: 7px;
-  color: #17271f;
   background: #f7f0df;
   box-shadow: 0 8px 18px rgb(0 0 0 / 30%);
   animation: table-card-in 180ms ease both;
-}
-
-.table-played-card strong {
-  font-family: Georgia, serif;
-  font-size: 15px;
-  line-height: 1;
-}
-
-.table-played-card span {
-  font-size: 17px;
-  line-height: 1;
-}
-
-.table-played-card.is-diamonds,
-.table-played-card.is-hearts {
-  color: #a43e39;
 }
 
 .card-waiting-dot {
@@ -1215,10 +1193,10 @@ h1 {
   justify-content: center;
   border: 1px solid rgb(32 43 37 / 22%);
   border-radius: 9px;
-  color: #14261e;
   background: #f7f0df;
   box-shadow: 0 7px 18px rgb(0 0 0 / 18%);
   padding: 0;
+  overflow: hidden;
   transform: translateY(var(--fan-drop, 0)) rotate(var(--fan-angle, 0deg));
   transform-origin: 50% 135%;
   transition:
@@ -1252,18 +1230,10 @@ h1 {
     rotate(var(--fan-angle, 0deg));
 }
 
-.playing-card strong {
-  font-family: Georgia, serif;
-  font-size: clamp(13px, 1.7vw, 20px);
-}
-
-.playing-card span {
-  font-size: clamp(15px, 2vw, 24px);
-}
-
-.playing-card.is-diamonds,
-.playing-card.is-hearts {
-  color: #a43e39;
+.card-face {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .ground-reveal-panel {
@@ -1311,27 +1281,11 @@ h1 {
 .ground-card {
   width: 54px;
   aspect-ratio: 0.7;
-  display: grid;
-  place-items: center;
-  align-content: center;
+  display: block;
+  overflow: hidden;
   border-radius: 8px;
-  color: #14261e;
   background: #f7f0df;
   box-shadow: 0 8px 18px rgb(0 0 0 / 22%);
-}
-
-.ground-card strong {
-  font-family: Georgia, serif;
-  font-size: 17px;
-}
-
-.ground-card span {
-  font-size: 19px;
-}
-
-.ground-card.is-diamonds,
-.ground-card.is-hearts {
-  color: #a43e39;
 }
 
 .ground-panel {

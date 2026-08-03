@@ -4,8 +4,11 @@ import {
   Suspense,
   useEffect,
   useState,
+  type ComponentType,
   type CSSProperties,
+  type SVGProps,
 } from "react";
+import * as PlayingCardDeck from "@letele/playing-cards";
 import {
   gameClient,
   type Card,
@@ -32,6 +35,47 @@ const cleanRoomCode = (value: string) =>
 
 const getInviteCode = () =>
   cleanRoomCode(new URLSearchParams(window.location.search).get("room") ?? "");
+
+type PlayingCardComponent = ComponentType<
+  SVGProps<SVGSVGElement> & { title?: string }
+>;
+
+const playingCardDeck = PlayingCardDeck as unknown as Record<
+  string,
+  PlayingCardComponent
+>;
+const cardSuitPrefix: Record<Card["suit"], string> = {
+  clubs: "C",
+  diamonds: "D",
+  hearts: "H",
+  spades: "S",
+};
+const cardRankSuffix: Record<Card["rank"], string> = {
+  A: "a",
+  K: "k",
+  Q: "q",
+  J: "j",
+  "10": "10",
+  "9": "9",
+  "8": "8",
+  "7": "7",
+  "6": "6",
+  "5": "5",
+  "4": "4",
+  "3": "3",
+  "2": "2",
+};
+
+function CardFace({ card, className }: { card: Card; className?: string }) {
+  const Face =
+    playingCardDeck[`${cardSuitPrefix[card.suit]}${cardRankSuffix[card.rank]}`];
+  return <Face aria-hidden="true" className={className} focusable="false" />;
+}
+
+function CardBack({ className }: { className?: string }) {
+  const Back = playingCardDeck.B1;
+  return <Back aria-hidden="true" className={className} focusable="false" />;
+}
 
 function Logo() {
   return (
@@ -395,9 +439,9 @@ export function App() {
                 <TableTrick room={room} />
               ) : (
                 <div className="deck" aria-hidden="true">
-                <span />
-                <span />
-                <span>ش</span>
+                  <CardBack />
+                  <CardBack />
+                  <CardBack />
                 </div>
               )}
               <div className="table-status">
@@ -830,9 +874,12 @@ function GroundRevealPanel({ cards }: { cards: Card[] }) {
       </div>
       <div className="ground-reveal-cards">
         {cards.map((card) => (
-          <article className={`ground-card is-${card.suit}`} key={card.id}>
-            <strong>{card.rank}</strong>
-            <span>{suitSymbol(card.suit)}</span>
+          <article
+            aria-label={`${card.rank} of ${card.suit}`}
+            className="ground-card"
+            key={card.id}
+          >
+            <CardFace card={card} className="card-face" />
           </article>
         ))}
       </div>
@@ -906,9 +953,11 @@ function TableTrick({ room }: { room: Room }) {
             key={position}
           >
             {played ? (
-              <article className={`table-played-card is-${played.card.suit}`}>
-                <strong>{played.card.rank}</strong>
-                <span>{suitSymbol(played.card.suit)}</span>
+              <article
+                aria-label={`${played.card.rank} of ${played.card.suit}`}
+                className="table-played-card"
+              >
+                <CardFace card={played.card} className="card-face" />
               </article>
             ) : (
               <span className="card-waiting-dot" aria-hidden="true" />
@@ -1045,12 +1094,6 @@ function Hand({
   selectable?: boolean;
   selectedIds?: string[];
 }) {
-  const suitSymbols: Record<Card["suit"], string> = {
-    clubs: "♣",
-    diamonds: "♦",
-    hearts: "♥",
-    spades: "♠",
-  };
   const suitOrder: Card["suit"][] = [
     "clubs",
     "diamonds",
@@ -1121,8 +1164,7 @@ function Hand({
             style={fanStyle}
             type="button"
           >
-            <strong>{card.rank}</strong>
-            <span>{suitSymbols[card.suit]}</span>
+            <CardFace card={card} className="card-face" />
           </button>
           );
         })}
@@ -1139,16 +1181,6 @@ function suitLabel(suit: Card["suit"] | null) {
     spades: "Spades",
   };
   return suit ? labels[suit] : "No suit";
-}
-
-function suitSymbol(suit: Card["suit"]) {
-  const symbols: Record<Card["suit"], string> = {
-    clubs: "♣",
-    diamonds: "♦",
-    hearts: "♥",
-    spades: "♠",
-  };
-  return symbols[suit];
 }
 
 function getPlayableCardIds(room: Room | null) {
