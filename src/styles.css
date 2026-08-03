@@ -908,6 +908,11 @@ h1 {
   pointer-events: none;
 }
 
+.bid-winner-marker.is-diamonds,
+.bid-winner-marker.is-hearts {
+  color: #711f24;
+}
+
 .table-card-slot {
   min-width: 72px;
   position: absolute;
@@ -1123,6 +1128,90 @@ h1 {
 
 .seat-mic-status.is-muted {
   color: #a8b4ae;
+}
+
+.seat.is-bid-winner .avatar {
+  border-style: solid;
+  box-shadow:
+    0 0 0 4px rgb(239 201 120 / 12%),
+    0 0 20px rgb(239 201 120 / 25%);
+}
+
+.bid-winner-marker {
+  min-width: 62px;
+  min-height: 27px;
+  position: absolute;
+  z-index: 5;
+  top: -13px;
+  right: -34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 3px 10px;
+  clip-path: polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%);
+  color: #17231e;
+  background: #efc978;
+  filter: drop-shadow(0 4px 5px rgb(0 0 0 / 34%));
+  white-space: nowrap;
+}
+
+.bid-winner-marker > span {
+  font-family: Georgia, serif;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.bid-winner-marker small {
+  max-width: none;
+  margin: 0;
+  color: inherit;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.seat-trick-wins {
+  width: 25px;
+  height: 34px;
+  position: absolute;
+  z-index: 4;
+  top: 18px;
+  left: -20px;
+  display: block;
+  filter: drop-shadow(0 4px 5px rgb(0 0 0 / 32%));
+}
+
+.seat-trick-card {
+  width: 23px;
+  height: 32px;
+  display: block;
+  border: 1px solid rgb(239 201 120 / 55%);
+  border-radius: 3px;
+}
+
+.seat-trick-wins > span {
+  width: 16px;
+  height: 16px;
+  position: absolute;
+  right: -5px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #071610;
+  border-radius: 50%;
+  color: #17231e;
+  background: #efc978;
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.seat-west .seat-trick-wins {
+  right: -20px;
+  left: auto;
 }
 
 .avatar.team-one {

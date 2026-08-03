@@ -548,6 +548,17 @@ export function App() {
                       ? getPlayerBiddingStatus(room, player.id)
                       : undefined
                   }
+                  bidWinner={
+                    Boolean(player) &&
+                    room?.match?.bidding.winnerId === player?.id
+                  }
+                  bidAmount={room?.match?.bidding.winningBid}
+                  trump={room?.match?.trump}
+                  trickWins={
+                    player && room?.match?.play
+                      ? room.match.play.trickWins[player.id] ?? 0
+                      : 0
+                  }
                 />
               );
             })}
@@ -1426,6 +1437,16 @@ function suitLabel(suit: Card["suit"] | null) {
   return suit ? labels[suit] : "No suit";
 }
 
+function suitSymbol(suit: Card["suit"]) {
+  const symbols: Record<Card["suit"], string> = {
+    clubs: "♣",
+    diamonds: "♦",
+    hearts: "♥",
+    spades: "♠",
+  };
+  return symbols[suit];
+}
+
 function getPlayableCardIds(room: Room | null) {
   if (
     room?.match?.phase !== "playing" ||
@@ -1505,6 +1526,8 @@ function TurnBanner({ room, turn }: { room: Room; turn: TurnContext }) {
 }
 
 function Seat({
+  bidAmount,
+  bidWinner,
   biddingStatus,
   displayPosition,
   onSelect,
@@ -1512,8 +1535,12 @@ function Seat({
   team,
   player,
   readiness,
+  trickWins,
+  trump,
   turn,
 }: {
+  bidAmount?: number | null;
+  bidWinner?: boolean;
   biddingStatus?: BiddingStatus;
   displayPosition: Position;
   onSelect?: (position: Position) => void;
@@ -1521,14 +1548,21 @@ function Seat({
   team: "one" | "two";
   player?: Player;
   readiness?: SeatReadiness;
+  trickWins?: number;
+  trump?: Card["suit"] | null;
   turn?: TurnContext;
 }) {
   const isYou = player?.id === gameClient.playerId;
+  const bidWinnerDescription = player
+    ? trump
+      ? `${player.name} won the bid. ${suitLabel(trump)} is trump.`
+      : `${player.name} won the bid${bidAmount ? ` with ${bidAmount}` : ""}.`
+    : "";
   return (
     <div
       className={`seat seat-${displayPosition} ${turn ? "is-active-turn" : ""} ${
         turn && isYou ? "is-your-turn" : ""
-      }`}
+      } ${bidWinner ? "is-bid-winner" : ""}`}
     >
       {player || !onSelect ? (
         <div className={`avatar team-${team}`}>
@@ -1540,6 +1574,32 @@ function Seat({
             />
           )}
           {readiness?.ready && <span className="ready-check">✓</span>}
+          {player && bidWinner && (
+            <span
+              aria-label={bidWinnerDescription}
+              className={`bid-winner-marker ${
+                trump ? `is-${trump}` : ""
+              }`}
+              role="status"
+            >
+              <span aria-hidden="true">{trump ? suitSymbol(trump) : "♛"}</span>
+              <small>
+                {trump ? `Trump ${suitLabel(trump)}` : `Bid ${bidAmount ?? ""}`}
+              </small>
+            </span>
+          )}
+          {player && Boolean(trickWins) && (
+            <span
+              aria-label={`${player.name} has won ${trickWins} ${
+                trickWins === 1 ? "trick" : "tricks"
+              }`}
+              className="seat-trick-wins"
+              role="status"
+            >
+              <CardBack className="seat-trick-card" />
+              <span aria-hidden="true">{trickWins}</span>
+            </span>
+          )}
         </div>
       ) : (
         <button
