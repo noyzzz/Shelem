@@ -9,9 +9,13 @@ const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 60_000);
 const botActionDelayMs = Number(process.env.BOT_ACTION_DELAY_MS ?? 350);
 const groundRevealMs = Number(process.env.GROUND_REVEAL_MS ?? 6_000);
 const trickDisplayMs = Number(process.env.TRICK_DISPLAY_MS ?? 5_000);
-const livekitApiKey = process.env.LIVEKIT_API_KEY;
-const livekitApiSecret = process.env.LIVEKIT_API_SECRET;
-const livekitUrl = process.env.LIVEKIT_URL;
+const isProduction = process.env.NODE_ENV === "production";
+const livekitApiKey =
+  process.env.LIVEKIT_API_KEY ?? (isProduction ? undefined : "devkey");
+const livekitApiSecret =
+  process.env.LIVEKIT_API_SECRET ?? (isProduction ? undefined : "secret");
+const livekitUrl =
+  process.env.LIVEKIT_URL ?? (isProduction ? undefined : "ws://localhost:7880");
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const positions = ["south", "west", "north", "east"];
 const suits = ["clubs", "diamonds", "hearts", "spades"];

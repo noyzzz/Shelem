@@ -5,7 +5,18 @@ required once Docker is installed.
 
 ## Development
 
-Start the development container:
+For local development on Windows, start the web app, game server, and LiveKit
+together:
+
+```powershell
+npm run dev:all
+```
+
+The first run downloads the official LiveKit Windows release and verifies its
+SHA-256 checksum. The launcher automatically advertises the active LAN address
+for WebRTC media. Keep this terminal open while testing.
+
+Alternatively, start the development containers:
 
 ```powershell
 docker compose up --build
@@ -15,6 +26,10 @@ Open `http://localhost:5173`.
 
 Source files are mounted into the container, so changes refresh in the browser
 without rebuilding the image.
+
+When using Docker Desktop, set `LIVEKIT_NODE_IP` in `.env` to the computer's
+LAN address (for example, the Wi-Fi IPv4 address) so browsers can reach the
+mapped WebRTC ports.
 
 To test a complete game by yourself, create a room, choose **Fill empty seats
 with bots**, and mark yourself ready. The three server-controlled players will
