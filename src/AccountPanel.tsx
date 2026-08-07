@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   claimGuestGames,
   fetchConfig,
@@ -45,6 +51,11 @@ export function AccountPanel({
   const [claimed, setClaimed] = useState(false);
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const googleHostRef = useRef<HTMLDivElement | null>(null);
+  const [hostReady, setHostReady] = useState(false);
+  const setGoogleHost = useCallback((node: HTMLDivElement | null) => {
+    googleHostRef.current = node;
+    setHostReady(Boolean(node));
+  }, []);
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -90,7 +101,7 @@ export function AccountPanel({
     !user &&
     mode === "menu" &&
     Boolean(googleClientId) &&
-    Boolean(googleHostRef.current);
+    hostReady;
 
   useEffect(() => {
     if (!showGoogle || !googleClientId) return;
@@ -247,7 +258,7 @@ export function AccountPanel({
               <div className="account-mode-buttons">
                 {googleClientId && (
                   <div className="google-auth-zone">
-                    <div ref={googleHostRef} className="google-button-host" />
+                    <div ref={setGoogleHost} className="google-button-host" />
                     <div className="google-or-divider">
                       <span />
                       <small>or</small>
