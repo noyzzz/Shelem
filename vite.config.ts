@@ -12,6 +12,9 @@ export default defineConfig(({ mode }) => {
           target: env.GAME_SERVER_URL || "http://localhost:3001",
           ws: true,
         },
+        "/api": {
+          target: env.GAME_SERVER_URL || "http://localhost:3001",
+        },
       },
     },
   };
