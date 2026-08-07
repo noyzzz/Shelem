@@ -240,7 +240,14 @@ export function AccountPanel({
             <div className="account-mode-buttons">
               {googleClientId && (
                 <div className="google-auth-zone">
-                  <div ref={googleButtonRef} className="google-button-host" />
+                  <div
+                    ref={googleButtonRef}
+                    className={`google-button-host ${
+                      googleBusy ? "is-loading" : ""
+                    }`}
+                  >
+                    {googleBusy && <span>Loading Google sign-in…</span>}
+                  </div>
                   <div className="google-or-divider">
                     <span />
                     <small>or</small>
