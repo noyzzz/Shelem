@@ -1,8 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   claimGuestGames,
+  fetchConfig,
   fetchCurrentUser,
   fetchStats,
+  googleLogin,
   login,
   logout,
   register,
@@ -12,6 +14,23 @@ import {
 import { gameClient } from "./gameClient";
 
 type Mode = "menu" | "login" | "register";
+
+const googleScriptLoader = (() => {
+  let promise: Promise<void> | null = null;
+  return () => {
+    if (!promise) {
+      promise = new Promise((resolve, reject) => {
+        const element = document.createElement("script");
+        element.src = "https://accounts.google.com/gsi/client";
+        element.async = true;
+        element.onload = () => resolve();
+        element.onerror = () => reject(new Error("Unable to load Google sign-in."));
+        document.head.appendChild(element);
+      });
+    }
+    return promise;
+  };
+})();
 
 export function AccountPanel({
   onUserChange,
@@ -25,6 +44,9 @@ export function AccountPanel({
   const [loaded, setLoaded] = useState(false);
   const [formError, setFormError] = useState("");
   const [claimed, setClaimed] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -52,8 +74,63 @@ export function AccountPanel({
 
   useEffect(() => {
     void refreshUser();
+    void fetchConfig()
+      .then(({ googleClientId: clientId }) => setGoogleClientId(clientId))
+      .catch(() => setGoogleClientId(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (open && !user && googleClientId) {
+      void loadGoogleAndRender();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, user, googleClientId]);
+
+  const loadGoogleAndRender = async () => {
+    if (!googleClientId) return;
+    setGoogleBusy(true);
+    setFormError("");
+    try {
+      await googleScriptLoader();
+      if (googleButtonRef.current && window.google) {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: (response) =>
+            void handleGoogleResponse(response.credential),
+        });
+        window.google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: "outline",
+          size: "medium",
+          shape: "rectangular",
+          width: 280,
+          text: "continue_with",
+        });
+      }
+    } catch (error) {
+      setFormError(
+        error instanceof Error ? error.message : "Google sign-in is unavailable.",
+      );
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const handleGoogleResponse = async (credential: string) => {
+    setGoogleBusy(true);
+    setFormError("");
+    try {
+      await googleLogin(credential);
+      await refreshUser();
+    } catch (error) {
+      setFormError(
+        error instanceof Error ? error.message : "Google sign-in failed.",
+      );
+    } finally {
+      setOpen(true);
+      setGoogleBusy(false);
+    }
+  };
 
   const setField = (field: string) => (value: string) => {
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -161,6 +238,16 @@ export function AccountPanel({
         <>
           {mode === "menu" && (
             <div className="account-mode-buttons">
+              {googleClientId && (
+                <div className="google-auth-zone">
+                  <div ref={googleButtonRef} className="google-button-host" />
+                  <div className="google-or-divider">
+                    <span />
+                    <small>or</small>
+                    <span />
+                  </div>
+                </div>
+              )}
               <button
                 className="primary"
                 onClick={() => setMode("login")}

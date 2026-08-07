@@ -35,7 +35,8 @@ export const initDb = async () => {
       id TEXT PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
-      password_hash TEXT NOT NULL,
+      password_hash TEXT,
+      google_id TEXT UNIQUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE TABLE IF NOT EXISTS sessions (
@@ -62,6 +63,8 @@ export const initDb = async () => {
       is_bot BOOLEAN NOT NULL DEFAULT false,
       PRIMARY KEY (match_id, position)
     );
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE;
+    ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
   `);
   return true;
 };
@@ -146,6 +149,38 @@ export const loginUser = async ({ username, password }) => {
     throw new AuthError("invalid-credentials", "Incorrect username or password.");
   }
   return createSessionForUser(user.id);
+};
+
+const findAvailableUsername = async (preferred) => {
+  const base = cleanUsername(preferred) || "player";
+  for (let suffix = 0; ; suffix += 1) {
+    const candidate = suffix === 0 ? base : `${base}${suffix}`;
+    const existing = await pool.query(
+      "SELECT 1 FROM users WHERE username = $1",
+      [candidate],
+    );
+    if (existing.rowCount === 0) return candidate;
+  }
+};
+
+export const loginOrRegisterWithGoogle = async ({ googleId, email, name }) => {
+  if (!pool) throw new AuthError("no-db", "Accounts are unavailable.");
+  const existing = await pool.query(
+    "SELECT id, username, name FROM users WHERE google_id = $1",
+    [googleId],
+  );
+  if (existing.rowCount > 0) {
+    return createSessionForUser(existing.rows[0].id);
+  }
+
+  const id = randomUUID();
+  const username = await findAvailableUsername(email?.split("@")[0]);
+  await pool.query(
+    `INSERT INTO users (id, username, name, password_hash, google_id)
+     VALUES ($1, $2, $3, NULL, $4)`,
+    [id, username, name, googleId],
+  );
+  return createSessionForUser(id);
 };
 
 const createSessionForUser = async (userId) => {

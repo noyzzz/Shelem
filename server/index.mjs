@@ -11,6 +11,7 @@ import {
   destroySession,
   initDb,
   listUserMatches,
+  loginOrRegisterWithGoogle,
   loginUser,
   persistMatch,
   publicUser,
@@ -31,6 +32,7 @@ const livekitApiSecret =
   process.env.LIVEKIT_API_SECRET ?? (isProduction ? undefined : "secret");
 const livekitUrl =
   process.env.LIVEKIT_URL ?? (isProduction ? undefined : "ws://localhost:7880");
+const googleClientId = process.env.GOOGLE_CLIENT_ID ?? null;
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const positions = ["south", "west", "north", "east"];
 const suits = ["clubs", "diamonds", "hearts", "spades"];
@@ -112,6 +114,34 @@ const writeJson = (response, status, body, headers = {}) => {
   response.end(JSON.stringify(body));
 };
 
+const verifyGoogleIdToken = async (credential) => {
+  try {
+    const body = new URLSearchParams({ id_token: credential });
+    const response = await fetch("https://oauth2.googleapis.com/tokeninfo", {
+      method: "POST",
+      body,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return { ok: false, message: "Google rejected this credential." };
+    const info = await response.json();
+    if (info.aud !== googleClientId) {
+      return { ok: false, message: "This credential is not for this application." };
+    }
+    if (info.email_verified !== "true" && info.email_verified !== true) {
+      return { ok: false, message: "This Google account is not verified." };
+    }
+    if (!info.sub) return { ok: false, message: "This credential is missing an account." };
+    return {
+      ok: true,
+      googleId: info.sub,
+      email: info.email ?? "",
+      name: info.name ?? info.email ?? "Google player",
+    };
+  } catch {
+    return { ok: false, message: "Unable to verify the Google credential." };
+  }
+};
+
 const handleApi = async (request, response) => {
   const url = new URL(request.url, "http://localhost");
   const path = url.pathname;
@@ -152,6 +182,47 @@ const handleApi = async (request, response) => {
       await destroySession(sessionToken);
       response.setHeader("Set-Cookie", sessionCookie("", "0"));
       writeJson(response, 200, { ok: true });
+      return;
+    }
+
+    if (path === "/api/config" && request.method === "GET") {
+      writeJson(response, 200, { googleClientId });
+      return;
+    }
+
+    if (path === "/api/auth/google" && request.method === "POST") {
+      if (!googleClientId) {
+        writeJson(response, 400, {
+          error: "google-unavailable",
+          message: "Google sign-in is not configured.",
+        });
+        return;
+      }
+      const body = await readJsonBody(request);
+      const credential = String(body.credential ?? "");
+      if (!credential) {
+        writeJson(response, 400, {
+          error: "invalid-credential",
+          message: "The Google credential is missing.",
+        });
+        return;
+      }
+
+      const profile = await verifyGoogleIdToken(credential);
+      if (!profile.ok) {
+        writeJson(response, 401, {
+          error: "invalid-credential",
+          message: profile.message,
+        });
+        return;
+      }
+
+      const session = await loginOrRegisterWithGoogle(profile);
+      response.setHeader(
+        "Set-Cookie",
+        sessionCookie(session.token, 60 * 60 * 24 * 30),
+      );
+      writeJson(response, 200, { user: { id: session.userId } });
       return;
     }
 

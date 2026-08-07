@@ -30,6 +30,7 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}
       DATABASE_URL: ${DATABASE_URL:-postgres://shelem:shelem@postgres:5432/shelem}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     expose:
       - "3001"
     healthcheck:

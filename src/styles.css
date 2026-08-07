@@ -2612,6 +2612,34 @@ h1 {
   gap: 10px;
 }
 
+.google-auth-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.google-button-host {
+  display: flex;
+  justify-content: center;
+}
+
+.google-or-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #769084;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.google-or-divider span {
+  flex: 1;
+  height: 1px;
+  background: rgb(255 255 255 / 10%);
+}
+
 .account-form {
   display: flex;
   flex-direction: column;

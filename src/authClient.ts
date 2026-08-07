@@ -23,6 +23,10 @@ export type Stats = {
   matches: MatchRecord[];
 };
 
+export type Config = {
+  googleClientId: string | null;
+};
+
 type ApiError = {
   error?: string;
   message?: string;
@@ -64,6 +68,14 @@ export const login = (input: { username: string; password: string }) =>
 
 export const logout = () =>
   api<{ ok: true }>("/api/auth/logout", { method: "POST" });
+
+export const fetchConfig = () => api<Config>("/api/config");
+
+export const googleLogin = (credential: string) =>
+  api<{ user: { id: string } }>("/api/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ credential }),
+  });
 
 export const fetchStats = () => api<Stats>("/api/me/matches");
 
