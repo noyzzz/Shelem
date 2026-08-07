@@ -531,7 +531,7 @@ export function App() {
                   position={position}
                   displayPosition={positionFromViewer(
                     position,
-                    currentPlayer?.position,
+                    room?.match ? currentPlayer?.position : undefined,
                   )}
                   team={
                     position === "north" || position === "south" ? "one" : "two"
