@@ -29,6 +29,7 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}
+      DATABASE_URL: ${DATABASE_URL:-postgres://shelem:shelem@postgres:5432/shelem}
     expose:
       - "3001"
     healthcheck:
@@ -36,6 +37,26 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - shelem
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shelem
+      POSTGRES_PASSWORD: shelem
+      POSTGRES_DB: shelem
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shelem -d shelem"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - shelem
 
@@ -72,6 +93,7 @@ services:
 
 volumes:
   web_node_modules:
+  postgres_data:
 
 networks:
   shelem:

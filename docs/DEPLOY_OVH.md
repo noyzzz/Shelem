@@ -57,10 +57,12 @@ Generate credentials on the VPS:
 ```bash
 printf 'LIVEKIT_API_KEY=LK_%s\n' "$(openssl rand -hex 8)"
 printf 'LIVEKIT_API_SECRET=%s\n' "$(openssl rand -base64 36 | tr -d '\n')"
+printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -base64 24 | tr -d '\n')"
 ```
 
 Put the generated values into `.env.production`. Do not publish or commit this
-file.
+file. The Postgres database runs as part of the stack on a named Docker volume,
+so its data (accounts and match history) survives restarts.
 
 ## 5. Start the production stack
 

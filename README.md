@@ -14,6 +14,8 @@ Play the current production version at
 - Four-player Shelem with opposite-seat partnerships
 - Three bots for completing and testing a game solo
 - Bidding, zamin, trump, trick play, and team scoring
+- Optional accounts with match history and win/loss stats in PostgreSQL
+- Guests can play instantly without an account, then claim their games later
 - Live voice and video powered by LiveKit
 - Responsive layouts for desktop and mobile
 - Dockerized local and production environments

@@ -18,6 +18,8 @@ import {
   type Room,
   type Team,
 } from "./gameClient";
+import type { User } from "./authClient";
+import { AccountPanel } from "./AccountPanel";
 
 const MediaRoom = lazy(() =>
   import("./MediaRoom").then(({ MediaRoom }) => ({ default: MediaRoom })),
@@ -143,6 +145,7 @@ export function App() {
   const [seatChangePending, setSeatChangePending] =
     useState<Position | null>(null);
   const [connectionStatus, setConnectionStatus] = useState("connecting");
+  const [accountUser, setAccountUser] = useState<User | null>(null);
   const acknowledgedTrickReviewIds = useRef(new Set<string>());
   const ready =
     room?.players.find((player) => player.id === gameClient.playerId)?.ready ??
@@ -165,6 +168,12 @@ export function App() {
     room?.match?.yourHand.filter((card) =>
       selectedDiscardIds.includes(card.id),
     ) ?? [];
+
+  useEffect(() => {
+    if (accountUser && !name.trim()) {
+      setName(accountUser.name);
+    }
+  }, [accountUser]);
 
   useEffect(() => {
     gameClient.connect(inviteCode || undefined);
@@ -799,6 +808,9 @@ export function App() {
       <nav className="home-nav">
         <Logo />
         <span>Private games with friends</span>
+        <div className="account-nav">
+          <AccountPanel onUserChange={setAccountUser} />
+        </div>
       </nav>
 
       {screen === "home" ? (

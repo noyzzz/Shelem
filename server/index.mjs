@@ -3,6 +3,20 @@ import { randomInt } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { AccessToken } from "livekit-server-sdk";
 import { calculateHandScore, cardPoints } from "./gameRules.mjs";
+import {
+  AuthError,
+  SESSION_COOKIE,
+  claimGuestMatches,
+  dbEnabled,
+  destroySession,
+  initDb,
+  listUserMatches,
+  loginUser,
+  persistMatch,
+  publicUser,
+  registerUser,
+  userFromToken,
+} from "./db.mjs";
 
 const port = Number(process.env.PORT ?? 3001);
 const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 60_000);
@@ -33,9 +47,145 @@ const httpServer = createServer((request, response) => {
     return;
   }
 
-  response.writeHead(404);
-  response.end("not found");
+  if (!request.url?.startsWith("/api/")) {
+    response.writeHead(404);
+    response.end("not found");
+    return;
+  }
+
+  handleApi(request, response);
 });
+
+const parseCookies = (header) => {
+  const cookies = new Map();
+  if (!header) return cookies;
+  for (const part of header.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0) continue;
+    cookies.set(
+      part.slice(0, separator).trim(),
+      decodeURIComponent(part.slice(separator + 1).trim()),
+    );
+  }
+  return cookies;
+};
+
+const sessionCookie = (token, maxAgeSeconds) =>
+  [
+    `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${maxAgeSeconds}`,
+    ...(isProduction ? ["Secure"] : []),
+  ].join("; ");
+
+const readJsonBody = async (request) =>
+  new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    request.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > 64 * 1024) {
+        reject(new Error("Request too large."));
+        request.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    request.on("end", () => {
+      try {
+        resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : {});
+      } catch {
+        reject(new Error("Invalid JSON body."));
+      }
+    });
+    request.on("error", reject);
+  });
+
+const writeJson = (response, status, body, headers = {}) => {
+  response.writeHead(status, {
+    "content-type": "application/json",
+    "cache-control": "no-store",
+    ...headers,
+  });
+  response.end(JSON.stringify(body));
+};
+
+const handleApi = async (request, response) => {
+  const url = new URL(request.url, "http://localhost");
+  const path = url.pathname;
+  const cookies = parseCookies(request.headers.cookie);
+  const sessionToken = cookies.get(SESSION_COOKIE) ?? null;
+
+  try {
+    if (path === "/api/auth/register" && request.method === "POST") {
+      const body = await readJsonBody(request);
+      const session = await registerUser({
+        name: body.name,
+        username: body.username,
+        password: body.password,
+      });
+      response.setHeader(
+        "Set-Cookie",
+        sessionCookie(session.token, 60 * 60 * 24 * 30),
+      );
+      writeJson(response, 201, { user: { id: session.userId } });
+      return;
+    }
+
+    if (path === "/api/auth/login" && request.method === "POST") {
+      const body = await readJsonBody(request);
+      const session = await loginUser({
+        username: body.username,
+        password: body.password,
+      });
+      response.setHeader(
+        "Set-Cookie",
+        sessionCookie(session.token, 60 * 60 * 24 * 30),
+      );
+      writeJson(response, 200, { user: { id: session.userId } });
+      return;
+    }
+
+    if (path === "/api/auth/logout" && request.method === "POST") {
+      await destroySession(sessionToken);
+      response.setHeader("Set-Cookie", sessionCookie("", "0"));
+      writeJson(response, 200, { ok: true });
+      return;
+    }
+
+    const user = await userFromToken(sessionToken);
+
+    if (path === "/api/me" && request.method === "GET") {
+      writeJson(response, 200, { user: user ? publicUser(user) : null });
+      return;
+    }
+
+    if (path === "/api/claim" && request.method === "POST" && user) {
+      const body = await readJsonBody(request);
+      const claimed = await claimGuestMatches(user.id, String(body.playerId ?? ""));
+      writeJson(response, 200, { claimed });
+      return;
+    }
+
+    if (path === "/api/me/matches" && request.method === "GET" && user) {
+      const stats = await listUserMatches(user.id);
+      writeJson(response, 200, stats);
+      return;
+    }
+
+    response.writeHead(404);
+    response.end("not found");
+  } catch (error) {
+    if (error instanceof AuthError) {
+      writeJson(response, 400, { error: error.code, message: error.message });
+      return;
+    }
+    console.error("API error:", error);
+    writeJson(response, 500, { error: "server-error", message: "Something went wrong." });
+  }
+};
 
 const webSocketServer = new WebSocketServer({ noServer: true });
 
@@ -47,6 +197,11 @@ httpServer.on("upgrade", (request, socket, head) => {
   }
 
   webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
+    const cookies = parseCookies(request.headers.cookie);
+    const sessionToken = cookies.get(SESSION_COOKIE) ?? null;
+    void userFromToken(sessionToken).then((user) => {
+      webSocket.userId = user?.id ?? null;
+    });
     webSocketServer.emit("connection", webSocket);
   });
 });
@@ -68,7 +223,12 @@ const serializeRoom = (room, viewerId) => ({
   score: room.score,
   matchWinnerTeam: room.matchWinnerTeam,
   players: [...room.players.values()].map(
-    ({ disconnectTimer: _disconnectTimer, socket: _socket, ...player }) =>
+    ({
+      disconnectTimer: _disconnectTimer,
+      socket: _socket,
+      userId: _userId,
+      ...player
+    }) =>
       player,
   ),
   ...(room.match
@@ -439,6 +599,7 @@ const scoreCompletedHand = (room) => {
     room.matchWinnerTeam = teamsAtTarget.includes(biddingTeam)
       ? biddingTeam
       : teamsAtTarget[0];
+    void persistMatch(room);
   }
 
   match.result = {
@@ -600,6 +761,7 @@ const forfeitMatch = (room, player, reason) => {
   const winningTeam = losingTeam === "one" ? "two" : "one";
   room.matchWinnerTeam = winningTeam;
   room.match.phase = "match-complete";
+  void persistMatch(room);
   room.match.forfeit = {
     losingPlayerId: player.id,
     losingPlayerName: player.name,
@@ -697,6 +859,7 @@ webSocketServer.on("connection", (socket) => {
       room.players.set(playerId, {
         id: playerId,
         name,
+        userId: socket.userId ?? null,
         position: "south",
         ready: false,
         connected: true,
@@ -752,6 +915,7 @@ webSocketServer.on("connection", (socket) => {
         existingPlayer.socket = socket;
         existingPlayer.connected = true;
         existingPlayer.name = name;
+        if (socket.userId) existingPlayer.userId = socket.userId;
       } else {
         const occupiedPositions = new Set(
           [...room.players.values()].map((candidate) => candidate.position),
@@ -762,6 +926,7 @@ webSocketServer.on("connection", (socket) => {
         room.players.set(playerId, {
           id: playerId,
           name,
+          userId: socket.userId ?? null,
           position: openPosition,
           ready: false,
           connected: true,
@@ -1188,4 +1353,11 @@ webSocketServer.on("connection", (socket) => {
 
 httpServer.listen(port, "0.0.0.0", () => {
   console.log(`Shelem game server listening on port ${port}`);
+  void initDb().then((enabled) => {
+    console.log(
+      enabled
+        ? "Database ready (accounts and match history enabled)."
+        : "Database disabled (DATABASE_URL not set). Accounts are unavailable.",
+    );
+  });
 });

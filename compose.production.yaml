@@ -25,6 +25,7 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?Set LIVEKIT_API_KEY in .env.production}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?Set LIVEKIT_API_SECRET in .env.production}
       LIVEKIT_URL: wss://${LIVEKIT_DOMAIN:?Set LIVEKIT_DOMAIN in .env.production}
+      DATABASE_URL: postgres://shelem:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}@postgres:5432/shelem
     expose:
       - "3001"
     healthcheck:
@@ -33,6 +34,26 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - game
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shelem
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: shelem
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shelem -d shelem"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
     networks:
       - game
 
@@ -87,3 +108,4 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
+  postgres_data:
