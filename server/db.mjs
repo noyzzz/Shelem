@@ -145,7 +145,7 @@ export const loginUser = async ({ username, password }) => {
   if (!user || !(await verifyPassword(password, user.password_hash))) {
     throw new AuthError("invalid-credentials", "Incorrect username or password.");
   }
-  return createSessionForUser(user);
+  return createSessionForUser(user.id);
 };
 
 const createSessionForUser = async (userId) => {
