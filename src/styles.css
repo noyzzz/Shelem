@@ -2580,10 +2580,13 @@ h1 {
   animation: popover-in 160ms ease both;
 }
 
+.account-popover.is-closed {
+  display: none;
+}
+
 @keyframes popover-in {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.98);
   }
 }
 

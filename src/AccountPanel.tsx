@@ -41,12 +41,10 @@ export function AccountPanel({
   const [mode, setMode] = useState<Mode>("menu");
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [loaded, setLoaded] = useState(false);
   const [formError, setFormError] = useState("");
   const [claimed, setClaimed] = useState(false);
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
-  const [googleBusy, setGoogleBusy] = useState(false);
-  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleHostRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -72,66 +70,7 @@ export function AccountPanel({
     }
   };
 
-  useEffect(() => {
-    void refreshUser();
-    void fetchConfig()
-      .then(({ googleClientId: clientId }) => setGoogleClientId(clientId))
-      .catch(() => setGoogleClientId(null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (open && !user && googleClientId && mode === "menu") {
-      void loadGoogleAndRender();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, user, googleClientId, mode]);
-
-  useEffect(() => {
-    if (!open || user || mode !== "menu") {
-      window.google?.accounts?.id?.cancel?.();
-    }
-    return () => {
-      window.google?.accounts?.id?.cancel?.();
-    };
-  }, [open, user, mode, googleClientId]);
-
-  const loadGoogleAndRender = async () => {
-    if (!googleClientId) return;
-    setGoogleBusy(true);
-    setFormError("");
-    try {
-      await googleScriptLoader();
-      if (
-        googleButtonRef.current &&
-        window.google &&
-        mode === "menu" &&
-        open
-      ) {
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: (response) =>
-            void handleGoogleResponse(response.credential),
-        });
-        window.google.accounts.id.renderButton(googleButtonRef.current, {
-          theme: "outline",
-          size: "medium",
-          shape: "rectangular",
-          width: 280,
-          text: "continue_with",
-        });
-      }
-    } catch (error) {
-      setFormError(
-        error instanceof Error ? error.message : "Google sign-in is unavailable.",
-      );
-    } finally {
-      setGoogleBusy(false);
-    }
-  };
-
   const handleGoogleResponse = async (credential: string) => {
-    setGoogleBusy(true);
     setFormError("");
     try {
       await googleLogin(credential);
@@ -140,11 +79,60 @@ export function AccountPanel({
       setFormError(
         error instanceof Error ? error.message : "Google sign-in failed.",
       );
-    } finally {
-      setOpen(true);
-      setGoogleBusy(false);
     }
   };
+
+  const onCredentialRef = useRef(handleGoogleResponse);
+  onCredentialRef.current = handleGoogleResponse;
+
+  const showGoogle =
+    open &&
+    !user &&
+    mode === "menu" &&
+    Boolean(googleClientId) &&
+    Boolean(googleHostRef.current);
+
+  useEffect(() => {
+    if (!showGoogle || !googleClientId) return;
+    let disposed = false;
+    googleScriptLoader()
+      .then(() => {
+        if (disposed || !window.google || !googleHostRef.current) return;
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: (response) =>
+            void onCredentialRef.current(response.credential),
+        });
+        googleHostRef.current.replaceChildren();
+        window.google.accounts.id.renderButton(googleHostRef.current, {
+          theme: "outline",
+          size: "medium",
+          shape: "rectangular",
+          width: 280,
+          text: "continue_with",
+        });
+      })
+      .catch(() => {
+        // Google sign-in is unavailable; the panel still works without it.
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [showGoogle, googleClientId]);
+
+  useEffect(() => {
+    if (showGoogle) return;
+    window.google?.accounts?.id?.cancel?.();
+    googleHostRef.current?.replaceChildren();
+  }, [showGoogle]);
+
+  useEffect(() => {
+    void refreshUser();
+    void fetchConfig()
+      .then(({ googleClientId: clientId }) => setGoogleClientId(clientId))
+      .catch(() => setGoogleClientId(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setField = (field: string) => (value: string) => {
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -190,163 +178,166 @@ export function AccountPanel({
     }
   };
 
-  if (!open) {
-    return (
+  return (
+    <div className="account-nav">
       <button
         className="account-button"
-        onClick={() => setOpen(true)}
+        onClick={() => setOpen((previous) => !previous)}
         type="button"
       >
         {user ? user.name : "Sign in"}
       </button>
-    );
-  }
 
-  return (
-    <div className="account-popover">
-      <div className="account-popover-header">
-        <strong>{user ? user.name : "Accounts"}</strong>
-        <button
-          className="account-close"
-          onClick={() => setOpen(false)}
-          type="button"
-          aria-label="Close"
-        >
-          ×
-        </button>
-      </div>
-
-      {user ? (
-        <div className="account-profile">
-          <p className="account-subline">
-            Playing as <strong>{user.username}</strong>
-          </p>
-          {stats && (
-            <dl className="account-stats">
-              <div>
-                <dt>Games</dt>
-                <dd>{stats.games}</dd>
-              </div>
-              <div>
-                <dt>Wins</dt>
-                <dd>{stats.wins}</dd>
-              </div>
-              <div>
-                <dt>Losses</dt>
-                <dd>{stats.losses}</dd>
-              </div>
-              <div>
-                <dt>Win rate</dt>
-                <dd>{stats.winRate}%</dd>
-              </div>
-            </dl>
-          )}
-          <button className="secondary account-claim" onClick={handleClaim} type="button">
-            {claimed ? "Games linked" : "Claim games from this device"}
-          </button>
-          <button className="pass-button account-logout" onClick={handleLogout} type="button">
-            Sign out
+      <div className={`account-popover ${open ? "" : "is-closed"}`}>
+        <div className="account-popover-header">
+          <strong>{user ? user.name : "Accounts"}</strong>
+          <button
+            className="account-close"
+            onClick={() => setOpen(false)}
+            type="button"
+            aria-label="Close"
+          >
+            ×
           </button>
         </div>
-      ) : (
-        <>
-          {mode === "menu" && (
-            <div className="account-mode-buttons">
-              {googleClientId && (
-                <div className="google-auth-zone">
-                  <div
-                    ref={googleButtonRef}
-                    className={`google-button-host ${
-                      googleBusy ? "is-loading" : ""
-                    }`}
-                  >
-                    {googleBusy && <span>Loading Google sign-in…</span>}
-                  </div>
-                  <div className="google-or-divider">
-                    <span />
-                    <small>or</small>
-                    <span />
-                  </div>
-                </div>
-              )}
-              <button
-                className="primary"
-                onClick={() => setMode("login")}
-                type="button"
-              >
-                Sign in
-              </button>
-              <button
-                className="secondary"
-                onClick={() => setMode("register")}
-                type="button"
-              >
-                Create an account
-              </button>
-            </div>
-          )}
 
-          {(mode === "login" || mode === "register") && (
-            <form className="account-form" onSubmit={handleSubmit}>
-              {mode === "register" && (
+        {user ? (
+          <div className="account-profile">
+            <p className="account-subline">
+              Playing as <strong>{user.username}</strong>
+            </p>
+            {stats && (
+              <dl className="account-stats">
+                <div>
+                  <dt>Games</dt>
+                  <dd>{stats.games}</dd>
+                </div>
+                <div>
+                  <dt>Wins</dt>
+                  <dd>{stats.wins}</dd>
+                </div>
+                <div>
+                  <dt>Losses</dt>
+                  <dd>{stats.losses}</dd>
+                </div>
+                <div>
+                  <dt>Win rate</dt>
+                  <dd>{stats.winRate}%</dd>
+                </div>
+              </dl>
+            )}
+            <button
+              className="secondary account-claim"
+              onClick={handleClaim}
+              type="button"
+            >
+              {claimed ? "Games linked" : "Claim games from this device"}
+            </button>
+            <button
+              className="pass-button account-logout"
+              onClick={handleLogout}
+              type="button"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <>
+            {mode === "menu" && (
+              <div className="account-mode-buttons">
+                {googleClientId && (
+                  <div className="google-auth-zone">
+                    <div ref={googleHostRef} className="google-button-host" />
+                    <div className="google-or-divider">
+                      <span />
+                      <small>or</small>
+                      <span />
+                    </div>
+                  </div>
+                )}
+                <button
+                  className="primary"
+                  onClick={() => setMode("login")}
+                  type="button"
+                >
+                  Sign in
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => setMode("register")}
+                  type="button"
+                >
+                  Create an account
+                </button>
+              </div>
+            )}
+
+            {(mode === "login" || mode === "register") && (
+              <form className="account-form" onSubmit={handleSubmit}>
+                {mode === "register" && (
+                  <label>
+                    Display name
+                    <input
+                      maxLength={24}
+                      onChange={(event) => setField("name")(event.target.value)}
+                      placeholder="How friends know you"
+                      value={form.name}
+                    />
+                  </label>
+                )}
                 <label>
-                  Display name
+                  Username
                   <input
-                    maxLength={24}
-                    onChange={(event) => setField("name")(event.target.value)}
-                    placeholder="How friends know you"
-                    value={form.name}
+                    autoComplete="username"
+                    maxLength={32}
+                    onChange={(event) =>
+                      setField("username")(event.target.value)
+                    }
+                    placeholder="yourname"
+                    value={form.username}
                   />
                 </label>
-              )}
-              <label>
-                Username
-                <input
-                  autoComplete="username"
-                  maxLength={32}
-                  onChange={(event) => setField("username")(event.target.value)}
-                  placeholder="yourname"
-                  value={form.username}
-                />
-              </label>
-              <label>
-                Password
-                <input
-                  autoComplete={
-                    mode === "register" ? "new-password" : "current-password"
-                  }
-                  minLength={8}
-                  onChange={(event) => setField("password")(event.target.value)}
-                  placeholder="At least 8 characters"
-                  type="password"
-                  value={form.password}
-                />
-              </label>
-              <button className="primary form-submit" type="submit">
-                {mode === "register" ? "Create account" : "Sign in"}
-              </button>
-              <button
-                className="account-switch"
-                onClick={() => {
-                  setMode(mode === "login" ? "register" : "login");
-                  setFormError("");
-                }}
-                type="button"
-              >
-                {mode === "login"
-                  ? "Need an account? Create one"
-                  : "Already have an account? Sign in"}
-              </button>
-            </form>
-          )}
+                <label>
+                  Password
+                  <input
+                    autoComplete={
+                      mode === "register" ? "new-password" : "current-password"
+                    }
+                    minLength={8}
+                    onChange={(event) =>
+                      setField("password")(event.target.value)
+                    }
+                    placeholder="At least 8 characters"
+                    type="password"
+                    value={form.password}
+                  />
+                </label>
+                <button className="primary form-submit" type="submit">
+                  {mode === "register" ? "Create account" : "Sign in"}
+                </button>
+                <button
+                  className="account-switch"
+                  onClick={() => {
+                    setMode(mode === "login" ? "register" : "login");
+                    setFormError("");
+                  }}
+                  type="button"
+                >
+                  {mode === "login"
+                    ? "Need an account? Create one"
+                    : "Already have an account? Sign in"}
+                </button>
+              </form>
+            )}
 
-          {formError && (
-            <p className="form-error" role="alert">
-              {formError}
-            </p>
-          )}
-        </>
-      )}
+            {formError && (
+              <p className="form-error" role="alert">
+                {formError}
+              </p>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
