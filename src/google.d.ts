@@ -17,6 +17,7 @@ declare global {
               text?: string;
             },
           ) => void;
+          cancel: () => void;
         };
       };
     };

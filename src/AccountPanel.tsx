@@ -81,11 +81,20 @@ export function AccountPanel({
   }, []);
 
   useEffect(() => {
-    if (open && !user && googleClientId) {
+    if (open && !user && googleClientId && mode === "menu") {
       void loadGoogleAndRender();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, user, googleClientId]);
+  }, [open, user, googleClientId, mode]);
+
+  useEffect(() => {
+    if (!open || user || mode !== "menu") {
+      window.google?.accounts?.id?.cancel?.();
+    }
+    return () => {
+      window.google?.accounts?.id?.cancel?.();
+    };
+  }, [open, user, mode, googleClientId]);
 
   const loadGoogleAndRender = async () => {
     if (!googleClientId) return;
@@ -93,7 +102,12 @@ export function AccountPanel({
     setFormError("");
     try {
       await googleScriptLoader();
-      if (googleButtonRef.current && window.google) {
+      if (
+        googleButtonRef.current &&
+        window.google &&
+        mode === "menu" &&
+        open
+      ) {
         window.google.accounts.id.initialize({
           client_id: googleClientId,
           callback: (response) =>

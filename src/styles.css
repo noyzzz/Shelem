@@ -2742,6 +2742,23 @@ h1 {
   width: 100%;
 }
 
+.crash-details {
+  max-width: 640px;
+  margin: 24px auto 0;
+  text-align: left;
+}
+
+.crash-details pre {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 6%);
+  color: #aabbb2;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @media (max-width: 700px) {
   .account-popover {
     top: calc(100% + 8px);
