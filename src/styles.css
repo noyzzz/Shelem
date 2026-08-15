@@ -1,7 +1,44 @@
 :root {
-  font-family: "Segoe UI", Arial, sans-serif;
-  color: #f8f2e7;
-  background: #071610;
+  /* Type */
+  --font-sans: "Segoe UI", Arial, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+
+  /* Color */
+  --color-background: #071610;
+  --color-background-raised: #0a2319;
+  --color-surface-subtle: rgb(255 255 255 / 3%);
+  --color-surface: rgb(255 255 255 / 6%);
+  --color-surface-hover: rgb(255 255 255 / 9%);
+  --color-surface-accent: rgb(239 201 120 / 8%);
+  --color-border-subtle: rgb(255 255 255 / 9%);
+  --color-border: rgb(255 255 255 / 12%);
+  --color-border-strong: rgb(255 255 255 / 14%);
+  --color-text: #f8f2e7;
+  --color-text-muted: #aabbb2;
+  --color-text-subtle: #769084;
+  --color-text-on-light: #17271f;
+  --color-accent: #efc978;
+  --color-accent-hover: #f8d88f;
+  --color-accent-muted: #e7c57e;
+  --color-accent-ink: #17291f;
+  --color-danger: #f0a99e;
+  --color-card: #f7f0df;
+
+  /* Shape, depth, and motion */
+  --radius-sm: 9px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-round: 999px;
+  --shadow-panel: 0 28px 70px rgb(0 0 0 / 25%);
+  --shadow-popover: 0 18px 50px rgb(0 0 0 / 45%);
+  --motion-fast: 160ms ease;
+  --content-game: min(920px, 100%);
+  --content-table: min(820px, 100%);
+
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -88,12 +125,6 @@ svg {
   align-items: center;
   justify-content: space-between;
   padding: 0 clamp(20px, 5vw, 72px);
-  border-bottom: 1px solid rgb(255 255 255 / 7%);
-}
-
-.home-nav > span {
-  color: #769084;
-  font-size: 13px;
 }
 
 .logo {
@@ -107,10 +138,10 @@ svg {
   height: 35px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   color: #173024;
-  background: #efc978;
-  font-family: Georgia, serif;
+  background: var(--color-accent);
+  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 700;
 }
@@ -153,7 +184,7 @@ svg {
 
 .eyebrow {
   margin: 0 0 12px;
-  color: #e7c57e;
+  color: var(--color-accent-muted);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -162,7 +193,7 @@ svg {
 
 h1 {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-display);
   font-size: clamp(43px, 7vw, 72px);
   line-height: 1.04;
   letter-spacing: -0.04em;
@@ -172,7 +203,7 @@ h1 {
 .setup-copy {
   max-width: 550px;
   margin: 22px auto 0;
-  color: #aabbb2;
+  color: var(--color-text-muted);
   font-size: clamp(16px, 2.2vw, 19px);
   line-height: 1.65;
 }
@@ -191,14 +222,14 @@ h1 {
 .account-mode-buttons .secondary {
   min-height: 54px;
   padding: 0 25px;
-  border-radius: 13px;
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
   cursor: pointer;
   font-weight: 700;
   transition:
-    transform 160ms ease,
-    background 160ms ease,
-    opacity 160ms ease;
+    transform var(--motion-fast),
+    background var(--motion-fast),
+    opacity var(--motion-fast);
 }
 
 .actions button:hover,
@@ -214,24 +245,24 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #17291f;
-  background: #efc978;
-  border: 1px solid #efc978;
+  color: var(--color-accent-ink);
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
   box-shadow: 0 12px 28px rgb(239 201 120 / 16%);
 }
 
 .primary:hover {
-  background: #f8d88f;
+  background: var(--color-accent-hover);
 }
 
 .secondary {
-  color: #f8f2e7;
-  background: rgb(255 255 255 / 5%);
-  border-color: rgb(255 255 255 / 14%) !important;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-color: var(--color-border-strong) !important;
 }
 
 .secondary:hover {
-  background: rgb(255 255 255 / 9%);
+  background: var(--color-surface-hover);
 }
 
 .features {
@@ -239,7 +270,7 @@ h1 {
   justify-content: center;
   gap: 30px;
   margin-top: 42px;
-  color: #718a7e;
+  color: var(--color-text-subtle);
   font-size: 13px;
 }
 
@@ -258,9 +289,9 @@ h1 {
   padding: 44px;
   text-align: left;
   background: rgb(10 35 25 / 76%);
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 24px;
-  box-shadow: 0 28px 70px rgb(0 0 0 / 25%);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-panel);
   backdrop-filter: blur(14px);
 }
 
@@ -279,10 +310,10 @@ h1 {
   position: absolute;
   top: 24px;
   right: 24px;
-  border: 1px solid rgb(255 255 255 / 12%);
+  border: 1px solid var(--color-border);
   border-radius: 50%;
   color: #b8c8c0;
-  background: rgb(255 255 255 / 5%);
+  background: var(--color-surface);
   cursor: pointer;
 }
 
@@ -303,16 +334,16 @@ h1 {
   width: 100%;
   height: 53px;
   padding: 0 16px;
-  border: 1px solid rgb(255 255 255 / 13%);
-  border-radius: 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
   outline: none;
   color: #fffaf0;
   background: rgb(2 12 8 / 42%);
-  transition: border-color 160ms ease;
+  transition: border-color var(--motion-fast);
 }
 
 .setup-card input:focus {
-  border-color: #d9b86f;
+  border-color: var(--color-accent);
 }
 
 .setup-card input::placeholder {
@@ -337,7 +368,7 @@ h1 {
 
 .form-error {
   margin: -6px 0 0;
-  color: #f0a99e;
+  color: var(--color-danger);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -370,15 +401,15 @@ h1 {
 
 .player-identity {
   padding: 7px 11px;
-  border: 1px solid rgb(255 255 255 / 9%);
-  border-radius: 9px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
   color: #789085;
   font-size: 11px;
   white-space: nowrap;
 }
 
 .player-identity strong {
-  color: #f8f2e7;
+  color: var(--color-text);
   font-weight: 700;
 }
 
@@ -395,7 +426,7 @@ h1 {
   gap: 10px;
   padding: 0 13px;
   color: #f3d68f;
-  background: rgb(239 201 120 / 8%);
+  background: var(--color-surface-accent);
   border: 1px solid rgb(239 201 120 / 25%);
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -429,7 +460,7 @@ h1 {
   gap: 14px;
   margin: 0 auto 22px;
   padding: 7px 12px;
-  border: 1px solid rgb(255 255 255 / 9%);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 14px;
   background: rgb(8 27 20 / 72%);
   box-shadow: 0 12px 30px rgb(0 0 0 / 16%);
@@ -476,7 +507,7 @@ h1 {
 }
 
 .match-score-team strong {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 24px;
   font-variant-numeric: tabular-nums;
 }
@@ -504,7 +535,7 @@ h1 {
 }
 
 .turn-banner {
-  width: min(820px, 100%);
+  width: var(--content-table);
   min-height: 66px;
   margin: 20px auto 0;
   display: flex;
@@ -534,7 +565,7 @@ h1 {
 }
 
 .turn-banner.is-your-turn .turn-pulse {
-  background: #efc978;
+  background: var(--color-accent);
   box-shadow: 0 0 0 0 rgb(239 201 120 / 50%);
 }
 
@@ -547,8 +578,8 @@ h1 {
   width: min(900px, 100%);
   margin: 14px auto 0;
   padding: 12px;
-  border: 1px solid rgb(255 255 255 / 9%);
-  border-radius: 16px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
   background: rgb(4 18 13 / 72%);
   box-shadow: 0 14px 34px rgb(0 0 0 / 16%);
 }
@@ -608,7 +639,7 @@ h1 {
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid rgb(255 255 255 / 11%);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   color: #aebeb7;
   background: rgb(255 255 255 / 4%);
   cursor: pointer;
@@ -704,7 +735,7 @@ h1 {
   place-items: center;
   overflow: hidden;
   border-radius: 8px;
-  color: #efc978;
+  color: var(--color-accent);
   background: linear-gradient(145deg, #173b2c, #0a2118);
   font-size: 12px;
   font-weight: 700;
@@ -755,7 +786,7 @@ h1 {
 }
 
 .is-focused-action .media-room {
-  width: min(820px, 100%);
+  width: var(--content-table);
   margin-top: 7px;
   padding: 7px 10px;
 }
@@ -785,7 +816,7 @@ h1 {
 }
 
 .turn-banner strong {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 17px;
 }
 
@@ -805,7 +836,7 @@ h1 {
 }
 
 .table-wrap {
-  width: min(820px, 100%);
+  width: var(--content-table);
   height: 500px;
   margin: 25px auto 0;
   position: relative;
@@ -886,7 +917,7 @@ h1 {
 }
 
 .card-table strong {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 17px;
 }
 
@@ -1000,7 +1031,7 @@ h1 {
 }
 
 .table-action-error {
-  width: min(920px, 100%);
+  width: var(--content-game);
   margin: 8px auto 0;
   text-align: center;
 }
@@ -1155,13 +1186,13 @@ h1 {
   padding: 3px 10px;
   clip-path: polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%);
   color: #17231e;
-  background: #efc978;
+  background: var(--color-accent);
   filter: drop-shadow(0 4px 5px rgb(0 0 0 / 34%));
   white-space: nowrap;
 }
 
 .bid-winner-marker > span {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 15px;
   line-height: 1;
 }
@@ -1204,10 +1235,10 @@ h1 {
   bottom: -4px;
   display: grid;
   place-items: center;
-  border: 2px solid #071610;
+  border: 2px solid var(--color-background);
   border-radius: 50%;
   color: #17231e;
-  background: #efc978;
+  background: var(--color-accent);
   font-size: 8px;
   font-weight: 900;
   line-height: 1;
@@ -1253,7 +1284,7 @@ h1 {
   bottom: 1px;
   display: grid;
   place-items: center;
-  border: 2px solid #071610;
+  border: 2px solid var(--color-background);
   border-radius: 50%;
   color: #10271c;
   background: #8bd1a3;
@@ -1281,7 +1312,7 @@ h1 {
 .seat-turn-label {
   margin-top: 5px;
   padding: 3px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-round);
   color: #10271c;
   background: #78af9c;
   font-size: 8px;
@@ -1296,7 +1327,7 @@ h1 {
   padding: 3px 8px;
   overflow: hidden;
   border: 1px solid rgb(239 201 120 / 28%);
-  border-radius: 999px;
+  border-radius: var(--radius-round);
   color: #f3d894;
   background: rgb(239 201 120 / 10%);
   font-size: 9px;
@@ -1308,13 +1339,13 @@ h1 {
 }
 
 .seat-bid-status.has-passed {
-  border-color: rgb(255 255 255 / 12%);
+  border-color: var(--color-border);
   color: #8da197;
   background: rgb(255 255 255 / 5%);
 }
 
 .seat.is-your-turn .seat-turn-label {
-  background: #efc978;
+  background: var(--color-accent);
 }
 
 .seat.is-active-turn small {
@@ -1322,17 +1353,24 @@ h1 {
   text-align: center;
 }
 
+.lobby-footer,
+.play-panel,
+.result-heading,
+.result-team,
+.next-hand-ready {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+}
+
 .lobby-footer {
-  width: min(820px, 100%);
+  width: var(--content-table);
   min-height: 68px;
   margin: 18px auto 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px 12px 20px;
-  border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: 16px;
-  background: rgb(255 255 255 / 3%);
 }
 
 .lobby-controls {
@@ -1346,7 +1384,7 @@ h1 {
   padding: 0 16px;
   border: 1px solid rgb(239 201 120 / 24%);
   border-radius: 11px;
-  color: #e7c57e;
+  color: var(--color-accent-muted);
   background: rgb(239 201 120 / 7%);
   cursor: pointer;
   font-size: 12px;
@@ -1358,16 +1396,16 @@ h1 {
 }
 
 .hand-panel {
-  width: min(920px, 100%);
+  width: var(--content-game);
   margin: 14px auto 0;
   padding: 16px;
-  border: 1px solid rgb(255 255 255 / 9%);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 18px;
   background: rgb(2 12 8 / 34%);
 }
 
 .bidding-panel {
-  width: min(920px, 100%);
+  width: var(--content-game);
   min-height: 82px;
   margin: 12px auto 0;
   display: flex;
@@ -1375,7 +1413,7 @@ h1 {
   gap: 22px;
   padding: 14px 16px;
   border: 1px solid rgb(239 201 120 / 16%);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: rgb(239 201 120 / 5%);
 }
 
@@ -1399,8 +1437,8 @@ h1 {
 }
 
 .bidding-summary strong {
-  color: #efc978;
-  font-family: Georgia, serif;
+  color: var(--color-accent);
+  font-family: var(--font-display);
   font-size: 26px;
 }
 
@@ -1436,7 +1474,7 @@ h1 {
   padding: 0 11px;
   border: 1px solid rgb(255 255 255 / 13%);
   outline: none;
-  color: #f8f2e7;
+  color: var(--color-text);
   background: #10291e;
 }
 
@@ -1448,14 +1486,14 @@ h1 {
 }
 
 .pass-button {
-  border: 1px solid rgb(255 255 255 / 12%);
+  border: 1px solid var(--color-border);
   color: #a9bab2;
   background: transparent;
 }
 
 .action-error {
   margin: 0;
-  color: #f0a99e;
+  color: var(--color-danger);
   font-size: 12px;
 }
 
@@ -1467,7 +1505,7 @@ h1 {
 }
 
 .hand-heading strong {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 17px;
 }
 
@@ -1496,8 +1534,8 @@ h1 {
   align-items: center;
   justify-content: center;
   border: 1px solid rgb(32 43 37 / 22%);
-  border-radius: 9px;
-  background: #f7f0df;
+  border-radius: var(--radius-sm);
+  background: var(--color-card);
   box-shadow: 0 7px 18px rgb(0 0 0 / 18%);
   padding: 0;
   overflow: hidden;
@@ -1526,7 +1564,7 @@ h1 {
 }
 
 .playing-card.is-selected {
-  border-color: #efc978;
+  border-color: var(--color-accent);
   box-shadow:
     0 0 0 3px rgb(239 201 120 / 22%),
     0 10px 24px rgb(0 0 0 / 24%);
@@ -1546,7 +1584,7 @@ h1 {
 }
 
 .ground-reveal-panel {
-  width: min(920px, 100%);
+  width: var(--content-game);
   margin: 12px auto 0;
   display: flex;
   align-items: center;
@@ -1564,7 +1602,7 @@ h1 {
 }
 
 .ground-reveal-panel > div:first-child > span {
-  color: #efc978;
+  color: var(--color-accent);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.13em;
@@ -1572,7 +1610,7 @@ h1 {
 }
 
 .ground-reveal-panel > div:first-child > strong {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 17px;
 }
 
@@ -1593,19 +1631,19 @@ h1 {
   display: block;
   overflow: hidden;
   border-radius: 8px;
-  background: #f7f0df;
+  background: var(--color-card);
   box-shadow: 0 8px 18px rgb(0 0 0 / 22%);
 }
 
 .ground-panel {
-  width: min(920px, 100%);
+  width: var(--content-game);
   margin: 12px auto 0;
   display: flex;
   align-items: center;
   gap: 18px;
   padding: 15px 16px;
   border: 1px solid rgb(120 175 156 / 24%);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: rgb(120 175 156 / 7%);
 }
 
@@ -1628,7 +1666,7 @@ h1 {
   overflow: hidden;
   border: 2px solid rgb(239 201 120 / 72%);
   border-radius: 6px;
-  background: #f7f0df;
+  background: var(--color-card);
   box-shadow: 0 5px 12px rgb(0 0 0 / 22%);
   cursor: pointer;
 }
@@ -1650,7 +1688,7 @@ h1 {
 }
 
 .ground-panel strong {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 16px;
 }
 
@@ -1678,7 +1716,7 @@ h1 {
   min-width: 128px;
   padding: 0 11px;
   border: 1px solid rgb(255 255 255 / 13%);
-  color: #f8f2e7;
+  color: var(--color-text);
   background: #10291e;
 }
 
@@ -1694,7 +1732,7 @@ h1 {
 }
 
 .play-selection-hint {
-  width: min(920px, 100%);
+  width: var(--content-game);
   margin: 6px auto 0;
   color: #8ca197;
   font-size: 11px;
@@ -1702,7 +1740,7 @@ h1 {
 }
 
 .play-panel {
-  width: min(920px, 100%);
+  width: var(--content-game);
   margin: 12px auto 0;
   display: grid;
   grid-template-columns: minmax(150px, 0.7fr) minmax(260px, 1.4fr) minmax(
@@ -1712,9 +1750,6 @@ h1 {
   align-items: center;
   gap: 18px;
   padding: 15px 16px;
-  border: 1px solid rgb(255 255 255 / 9%);
-  border-radius: 16px;
-  background: rgb(255 255 255 / 3%);
 }
 
 .trick-summary {
@@ -1723,7 +1758,7 @@ h1 {
 }
 
 .trick-summary strong {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 17px;
 }
 
@@ -1748,13 +1783,13 @@ h1 {
   place-items: center;
   align-content: center;
   border-radius: 7px;
-  color: #17271f;
-  background: #f7f0df;
+  color: var(--color-text-on-light);
+  background: var(--color-card);
   box-shadow: 0 6px 14px rgb(0 0 0 / 20%);
 }
 
 .trick-card > span {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 17px;
   font-weight: 700;
 }
@@ -1793,7 +1828,7 @@ h1 {
 
 .trick-score strong {
   color: #f4d38b;
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 
@@ -1802,7 +1837,7 @@ h1 {
 }
 
 .result-panel {
-  width: min(920px, 100%);
+  width: var(--content-game);
   margin: 12px auto 0;
   display: grid;
   grid-template-columns: minmax(210px, 1fr) repeat(2, minmax(220px, 1fr));
@@ -1813,9 +1848,6 @@ h1 {
 .result-team {
   min-height: 112px;
   padding: 17px 18px;
-  border: 1px solid rgb(255 255 255 / 9%);
-  border-radius: 16px;
-  background: rgb(255 255 255 / 3%);
 }
 
 .result-heading {
@@ -1835,12 +1867,12 @@ h1 {
 }
 
 .result-heading strong {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 18px;
 }
 
 .result-heading small {
-  color: #efc978;
+  color: var(--color-accent);
 }
 
 .result-team {
@@ -1861,7 +1893,7 @@ h1 {
 }
 
 .result-team > div > span {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-weight: 700;
 }
 
@@ -1880,7 +1912,7 @@ h1 {
 .result-team dd {
   margin: 0;
   color: #f4d38b;
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 700;
 }
@@ -1893,9 +1925,6 @@ h1 {
   justify-content: flex-end;
   gap: 16px;
   padding: 7px 8px 7px 17px;
-  border: 1px solid rgb(255 255 255 / 9%);
-  border-radius: 14px;
-  background: rgb(255 255 255 / 3%);
 }
 
 .next-hand-ready > span {
@@ -1909,27 +1938,27 @@ h1 {
 }
 
 .forfeit-panel {
-  width: min(920px, 100%);
+  width: var(--content-game);
   margin: 12px auto 0;
   display: grid;
   justify-items: center;
   gap: 7px;
   padding: 24px;
   border: 1px solid rgb(239 201 120 / 32%);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   text-align: center;
   background: rgb(239 201 120 / 7%);
 }
 
 .forfeit-panel > span {
-  color: #efc978;
+  color: var(--color-accent);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .forfeit-panel strong {
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 21px;
 }
 
@@ -1965,7 +1994,7 @@ h1 {
   min-height: 44px;
   min-width: 130px;
   color: #15291f;
-  background: #efc978;
+  background: var(--color-accent);
 }
 
 .ready-button.is-ready {
@@ -1979,7 +2008,7 @@ h1 {
   bottom: 25px;
   left: 50%;
   padding: 11px 17px;
-  border: 1px solid rgb(255 255 255 / 12%);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   color: #e9f1ed;
   background: #163c2d;
@@ -1997,7 +2026,6 @@ h1 {
 }
 
 @media (max-width: 700px) {
-  .home-nav > span,
   .room-label {
     display: none;
   }
@@ -2553,15 +2581,15 @@ h1 {
 }
 
 .account-button {
-  border: 1px solid rgb(255 255 255 / 14%);
-  border-radius: 999px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-round);
   padding: 8px 16px;
   color: #e7ece9;
-  background: rgb(255 255 255 / 6%);
+  background: var(--color-surface);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
 }
 
 .account-button:hover {
@@ -2575,13 +2603,13 @@ h1 {
   top: calc(100% + 12px);
   right: 0;
   z-index: 20;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   padding: 18px;
   color: #e7ece9;
   background: #14201b;
-  box-shadow: 0 18px 50px rgb(0 0 0 / 45%);
-  animation: popover-in 160ms ease both;
+  box-shadow: var(--shadow-popover);
+  animation: popover-in var(--motion-fast) both;
 }
 
 .account-popover.is-closed {
@@ -2610,7 +2638,7 @@ h1 {
   height: 28px;
   border-radius: 50%;
   border: none;
-  color: #aabbb2;
+  color: var(--color-text-muted);
   background: transparent;
   font-size: 18px;
   cursor: pointer;
@@ -2646,7 +2674,7 @@ h1 {
 }
 
 .google-button-host.is-loading {
-  color: #769084;
+  color: var(--color-text-subtle);
   font-size: 12px;
 }
 
@@ -2654,7 +2682,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #769084;
+  color: var(--color-text-subtle);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -2677,7 +2705,7 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #aabbb2;
+  color: var(--color-text-muted);
   font-size: 13px;
   text-align: left;
 }
@@ -2685,22 +2713,22 @@ h1 {
 .account-form input {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid rgb(255 255 255 / 14%);
+  border: 1px solid var(--color-border-strong);
   border-radius: 10px;
   padding: 10px 12px;
   color: #fff;
-  background: rgb(255 255 255 / 6%);
+  background: var(--color-surface);
   font-size: 14px;
   outline: none;
 }
 
 .account-form input:focus {
-  border-color: #e7c57e;
+  border-color: var(--color-accent-muted);
 }
 
 .account-switch {
   border: none;
-  color: #aabbb2;
+  color: var(--color-text-muted);
   background: transparent;
   font-size: 12px;
   cursor: pointer;
@@ -2708,7 +2736,7 @@ h1 {
 }
 
 .account-switch:hover {
-  color: #e7c57e;
+  color: var(--color-accent-muted);
 }
 
 .account-profile {
@@ -2719,7 +2747,7 @@ h1 {
 
 .account-subline {
   margin: 0;
-  color: #aabbb2;
+  color: var(--color-text-muted);
   font-size: 13px;
   text-align: left;
 }
@@ -2735,11 +2763,11 @@ h1 {
 .account-stats div {
   border-radius: 10px;
   padding: 10px 6px;
-  background: rgb(255 255 255 / 6%);
+  background: var(--color-surface);
 }
 
 .account-stats dt {
-  color: #769084;
+  color: var(--color-text-subtle);
   font-size: 11px;
 }
 
@@ -2763,8 +2791,8 @@ h1 {
 .crash-details pre {
   padding: 12px;
   border-radius: 10px;
-  background: rgb(255 255 255 / 6%);
-  color: #aabbb2;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
   font-size: 12px;
   overflow-x: auto;
   white-space: pre-wrap;

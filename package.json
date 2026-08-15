@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:all": "concurrently --kill-others -n web,game,media \"npm:dev\" \"npm:server\" \"npm:media\"",
+    "dev:all": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dev.ps1",
     "media": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-livekit.ps1",
     "server": "node server/index.mjs",
     "test:server": "node --test server/integration.test.mjs",

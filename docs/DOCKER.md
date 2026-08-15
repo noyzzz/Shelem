@@ -5,8 +5,8 @@ required once Docker is installed.
 
 ## Development
 
-For local development on Windows, start the web app, game server, and LiveKit
-together:
+For local development on Windows, start PostgreSQL, the web app, game server,
+and LiveKit together:
 
 ```powershell
 npm run dev:all
@@ -14,7 +14,9 @@ npm run dev:all
 
 The first run downloads the official LiveKit Windows release and verifies its
 SHA-256 checksum. The launcher automatically advertises the active LAN address
-for WebRTC media. Keep this terminal open while testing.
+for WebRTC media. It also exposes the Compose PostgreSQL service on host port
+5433. Keep this terminal open while testing. Vite refreshes the web app, and
+Node restarts the game server when its source changes.
 
 Alternatively, start the development containers:
 
@@ -67,10 +69,10 @@ The Compose project currently runs:
 - `web`: React browser client
 - `game-server`: authoritative WebSocket room and presence state
 - `livekit`: self-hosted WebRTC voice and video
+- `postgres`: accounts, matches, and game history
 
 Future gameplay infrastructure may include:
 
-- `postgres`: accounts, matches, and game history
 - `redis`: room presence and short-lived reconnect state
 
 All services will communicate through the private `shelem` Docker network.

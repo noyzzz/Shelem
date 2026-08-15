@@ -114,9 +114,9 @@ function CardBack({ className }: { className?: string }) {
 
 function Logo() {
   return (
-    <div className="logo" aria-label="Shelem">
+    <div className="logo" aria-label="PlayRook">
       <span>ش</span>
-      <strong>SHELEM</strong>
+      <strong>PLAYROOK</strong>
     </div>
   );
 }
@@ -460,9 +460,9 @@ export function App() {
         <section className="lobby-content">
           {room?.match && <MatchScoreboard room={room} />}
           <div className="lobby-title">
-            <p className="eyebrow">
-              {room?.match ? `Hand ${room.match.handNumber}` : "Your private table"}
-            </p>
+            {room?.match && (
+              <p className="eyebrow">Hand {room.match.handNumber}</p>
+            )}
             <h1>
               {room?.match?.phase === "match-complete"
                 ? "The match is over."
@@ -504,7 +504,7 @@ export function App() {
                   ? "The bidder’s opening card establishes trump for the hand."
                 : room?.match
                 ? "Your hand is private. Bidding is now open."
-                : "Share the room code. The game begins when all four are ready."}
+                : "Share the room code. The game starts when all four players are ready."}
             </p>
           </div>
 
@@ -807,7 +807,6 @@ export function App() {
     <main className="shell">
       <nav className="home-nav">
         <Logo />
-        <span>Private games with friends</span>
         <div className="account-nav">
           <AccountPanel onUserChange={setAccountUser} />
         </div>
@@ -821,12 +820,8 @@ export function App() {
             <span>♥</span>
             <span>♠</span>
           </div>
-          <p className="eyebrow">The table is waiting</p>
-          <h1>Shelem, together again.</h1>
-          <p className="intro">
-            A private table for four friends—with the cards, conversation, and
-            friendly competition all in one place.
-          </p>
+          <h1>Play Shelem together.</h1>
+          <p className="intro">Private online tables for four players.</p>
 
           <div className="actions">
             <button
@@ -872,10 +867,7 @@ export function App() {
           >
             ←
           </button>
-          <p className="eyebrow">
-            {flow === "create" ? "Create a private table" : "Join your friends"}
-          </p>
-          <h1>{flow === "create" ? "Take your seat." : "Welcome to the table."}</h1>
+          <h1>{flow === "create" ? "Take your seat." : "Join a table."}</h1>
           <p className="setup-copy">
             {flow === "create"
               ? "We’ll create a room code for you to share."
