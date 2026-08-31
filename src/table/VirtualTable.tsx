@@ -262,7 +262,7 @@ function SeatVideoLayer({
         return (
           <div
             className={cn(
-              "absolute top-0 left-0 grid -translate-x-1/2 -translate-y-1/2 justify-items-center text-center opacity-0 will-change-transform pointer-events-none",
+              "absolute top-0 left-0 grid justify-items-center text-center opacity-0 will-change-transform pointer-events-none",
               seat.turnLabel && "drop-shadow-[0_0_8px_rgba(229,197,122,0.5)]",
             )}
             data-seat-position={seat.displayPosition}

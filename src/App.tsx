@@ -19,6 +19,7 @@ import {
 import type { User } from "./authClient";
 import { AccountPanel } from "./AccountPanel";
 import { VirtualTable } from "./table/VirtualTable";
+import { MenuTableScene } from "./table/MenuTableScene";
 import { HomeScreen } from "./screens/HomeScreen";
 import { SetupScreen } from "./screens/SetupScreen";
 import { GameRoomScreen } from "./screens/GameRoomScreen";
@@ -700,39 +701,54 @@ export function App() {
   }
 
   return (
-    <main className="relative grid min-h-screen grid-cols-1 place-items-center overflow-hidden bg-radial-[ellipse_80%_60%_at_50%_0%] from-emerald-950/35 via-background to-background px-4 py-16 sm:py-24">
-      <nav className="absolute top-0 left-0 flex min-h-[72px] w-full items-center justify-between px-6 sm:px-12 z-30">
-        <Logo />
-        <div>
-          <AccountPanel onUserChange={setAccountUser} />
-        </div>
-      </nav>
-
+    <main className="relative min-h-[100svh] overflow-hidden bg-background">
+      <MenuTableScene playerName={accountUser?.name || name || "Guest"} />
+      <div aria-hidden="true" className="menu-scene-scrim absolute inset-0" />
       {screen === "home" ? (
-        <HomeScreen onBegin={begin} />
+        <div className="absolute top-3 right-3 z-30 sm:top-5 sm:right-6">
+          <AccountPanel blend onUserChange={setAccountUser} />
+        </div>
       ) : (
-        <SetupScreen
-          connectionStatus={connectionStatus}
-          error={formError}
-          flow={flow}
-          name={name}
-          onBack={() => {
-            setFormError("");
-            window.history.replaceState({}, "", "/");
-            setScreen("home");
-          }}
-          onNameChange={(nextName) => {
-            setName(nextName);
-            setFormError("");
-          }}
-          onRoomCodeChange={(code) => {
-            setRoomInput(cleanRoomCode(code));
-            setFormError("");
-          }}
-          onSubmit={enterLobby}
-          roomCode={roomInput}
-        />
+        <nav className="absolute top-0 left-0 z-30 flex min-h-[72px] w-full items-center justify-between px-6 sm:px-12">
+          <Logo />
+          <AccountPanel onUserChange={setAccountUser} />
+        </nav>
       )}
+
+      <div
+        className={cn(
+          "relative z-10 mx-auto flex min-h-[100svh] w-full max-w-[1536px] px-5 pt-24 pb-7 sm:px-8 sm:pb-10 lg:px-12",
+          screen === "home"
+            ? "items-end justify-start md:items-center"
+            : "items-center justify-center",
+        )}
+      >
+        {screen === "home" ? (
+          <HomeScreen onBegin={begin} />
+        ) : (
+          <SetupScreen
+            connectionStatus={connectionStatus}
+            error={formError}
+            flow={flow}
+            name={name}
+            onBack={() => {
+              setFormError("");
+              window.history.replaceState({}, "", "/");
+              setScreen("home");
+            }}
+            onNameChange={(nextName) => {
+              setName(nextName);
+              setFormError("");
+            }}
+            onRoomCodeChange={(code) => {
+              setRoomInput(cleanRoomCode(code));
+              setFormError("");
+            }}
+            onSubmit={enterLobby}
+            roomCode={roomInput}
+          />
+        )}
+      </div>
     </main>
   );
 }

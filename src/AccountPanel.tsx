@@ -57,8 +57,10 @@ const googleScriptLoader = (() => {
 })();
 
 export function AccountPanel({
+  blend = false,
   onUserChange,
 }: {
+  blend?: boolean;
   onUserChange: (user: User | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -211,8 +213,13 @@ export function AccountPanel({
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger
         className={cn(
-          buttonVariants({ size: "sm", variant: "outline" }),
-          "bg-card/80 backdrop-blur-md cursor-pointer",
+          buttonVariants({
+            size: "sm",
+            variant: blend ? "ghost" : "outline",
+          }),
+          !blend && "bg-card/80 backdrop-blur-md",
+          blend && "border border-white/10 bg-black/30 text-foreground shadow-sm backdrop-blur-md hover:bg-black/50 hover:text-foreground",
+          "cursor-pointer transition-all",
         )}
       >
         {user ? user.name : "Sign in"}

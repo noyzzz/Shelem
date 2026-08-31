@@ -222,12 +222,14 @@ export class TableSceneEngine {
   private height = 1;
   private interactionEnabled = true;
   private pointerStart?: { x: number; y: number };
+  private readonly seatProjectionHeight: number;
 
   constructor({
     canvas,
     onCardAction,
     onRendererError,
     onSeatProjection,
+    seatProjectionHeight = SEAT_ANCHORS.north.y,
   }: {
     canvas: HTMLCanvasElement;
     onCardAction: (cardId: string) => void;
@@ -236,7 +238,9 @@ export class TableSceneEngine {
       position: RelativePosition,
       projection: SeatProjection,
     ) => void;
+    seatProjectionHeight?: number;
   }) {
+    this.seatProjectionHeight = seatProjectionHeight;
     this.renderer = new WebGLRenderer({
       alpha: true,
       antialias: true,
@@ -244,11 +248,11 @@ export class TableSceneEngine {
       powerPreference: "high-performance",
     });
     this.renderer.outputColorSpace = SRGBColorSpace;
-    this.renderer.setClearColor(0x06140f, 0);
+    this.renderer.setClearColor(0x05120d, 0);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
     this.renderer.shadowMap.enabled = true;
-    this.scene.background = new Color(0x071610);
-    this.scene.fog = new FogExp2(0x071610, 0.025);
+    this.scene.background = new Color(0x05120d);
+    this.scene.fog = new FogExp2(0x05120d, 0.015);
     this.camera.position.copy(CAMERA_PRESETS.landscape.position);
 
     this.controls = new OrbitControls(this.camera, canvas);
@@ -438,7 +442,8 @@ export class TableSceneEngine {
     ) => void,
   ) {
     (Object.keys(SEAT_ANCHORS) as RelativePosition[]).forEach((position) => {
-      const world = SEAT_ANCHORS[position];
+      const world = SEAT_ANCHORS[position].clone();
+      world.y = this.seatProjectionHeight;
       const projected = world.clone().project(this.camera);
       const distance = this.camera.position.distanceTo(world);
       callback(position, {
