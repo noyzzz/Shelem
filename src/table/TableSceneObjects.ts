@@ -57,19 +57,32 @@ export function buildTableEnvironment(scene: Scene, seatRoot: Group) {
   base.castShadow = true;
   base.receiveShadow = true;
 
+  const trimMaterial = new MeshStandardMaterial({
+    color: 0xb88e3d,
+    metalness: 0.65,
+    roughness: 0.32,
+  });
+  const trim = new Mesh(
+    new CylinderGeometry(5.31, 5.31, 0.135, 96),
+    trimMaterial,
+  );
+  trim.position.y = 0.636;
+  trim.scale.z = 0.6;
+  trim.receiveShadow = true;
+
   const feltMaterial = new MeshStandardMaterial({
     color: 0x0c4833,
     metalness: 0.02,
     roughness: 0.84,
   });
   const felt = new Mesh(
-    new CylinderGeometry(5.26, 5.26, 0.13, 96),
+    new CylinderGeometry(5.24, 5.24, 0.13, 96),
     feltMaterial,
   );
   felt.position.y = 0.64;
   felt.scale.z = 0.6;
   felt.receiveShadow = true;
-  scene.add(base, felt);
+  scene.add(base, trim, felt);
 
   const seatPositions: Record<RelativePosition, Vector3> = {
     north: new Vector3(0, 0.28, -4.45),
@@ -131,14 +144,18 @@ export class CardTextureFactory {
     canvas.height = 420;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Unable to create card artwork.");
-    context.fillStyle = "#faf6eb";
+    context.fillStyle = "#faf7ef";
     roundedRect(context, 2, 2, 296, 416, 20);
     context.fill();
-    context.strokeStyle = "#ded6c4";
+    context.strokeStyle = "#ded7c6";
     context.lineWidth = 2.5;
     context.stroke();
+    context.strokeStyle = "#e8e1d0";
+    context.lineWidth = 1;
+    roundedRect(context, 8, 8, 284, 404, 14);
+    context.stroke();
     const red = card.suit === "diamonds" || card.suit === "hearts";
-    context.fillStyle = red ? "#a42f32" : "#14241c";
+    context.fillStyle = red ? "#ba2c32" : "#14251d";
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.font = "700 58px 'Outfit', 'Plus Jakarta Sans', sans-serif";

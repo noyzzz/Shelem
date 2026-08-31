@@ -90,7 +90,7 @@ export function VirtualTable({
         onCardAction: (cardId) => cardActionRef.current?.(cardId),
         onRendererError: () => rendererUnavailableRef.current(),
         onSeatProjection: (position, projection) => {
-          applySeatProjection(seatElements.current[position], projection);
+          applySeatProjection(seatElements.current[position], position, projection);
         },
       });
       sceneRef.current = scene;
@@ -146,31 +146,35 @@ export function VirtualTable({
         />
         <div
           className={cn(
-            "absolute top-[48%] left-1/2 z-20 grid max-w-xs -translate-x-1/2 -translate-y-1/2 justify-items-center gap-0.5 rounded-xl border border-border/60 bg-card/80 px-3.5 py-1.5 text-center shadow-md backdrop-blur-md pointer-events-none",
+            "absolute top-[48%] left-1/2 z-20 grid max-w-xs -translate-x-1/2 -translate-y-1/2 justify-items-center gap-0.5 rounded-full border border-white/12 bg-[#061912]/85 px-4 py-1.5 text-center shadow-[0_4px_24px_rgba(0,0,0,0.65),0_0_12px_rgba(229,197,122,0.1)] backdrop-blur-md pointer-events-none",
             model.trick.length > 0 && "top-[52%]",
           )}
         >
-          <strong className="font-heading text-xs sm:text-sm font-semibold text-foreground">{status}</strong>
-          <small className="text-[10px] sm:text-xs text-muted-foreground">{detail}</small>
+          <strong className="font-heading text-xs sm:text-sm font-semibold tracking-wide text-foreground/95">{status}</strong>
+          <small className="text-[10px] sm:text-xs font-medium text-primary/85">{detail}</small>
         </div>
         {model.trump && (
           <div
             className={cn(
-              "absolute top-16 right-4 sm:top-18 sm:right-6 z-20 grid size-10 sm:size-12 place-items-center rounded-full border border-primary/30 bg-primary text-primary-foreground shadow-lg pointer-events-none",
+              "absolute top-18 right-4 sm:top-5 sm:right-6 z-30 flex items-center gap-2 rounded-xl border border-primary/50 bg-[#091f18]/90 px-3.5 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.6),0_0_16px_rgba(229,197,122,0.18)] backdrop-blur-md pointer-events-none",
               (model.trump === "diamonds" || model.trump === "hearts") && "text-destructive",
             )}
           >
-            <span className="font-serif text-xl sm:text-2xl leading-none">{suitSymbol(model.trump)}</span>
-            <small className="text-[8px] font-bold tracking-tight">Trump</small>
+            <span className="font-serif text-2xl sm:text-3xl leading-none">{suitSymbol(model.trump)}</span>
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold tracking-widest text-primary uppercase">Trump</span>
+              <span className="text-[11px] font-semibold text-foreground/90 capitalize">{model.trump}</span>
+            </div>
           </div>
         )}
-        <ButtonGroup className="absolute right-3.5 bottom-3.5 z-30 shadow-md backdrop-blur-md" aria-label="Table camera controls">
+        <ButtonGroup className="absolute right-3.5 bottom-3.5 z-30 shadow-[0_4px_16px_rgba(0,0,0,0.4)] backdrop-blur-md rounded-lg border border-white/10 bg-[#081b15]/90 p-0.5" aria-label="Table camera controls">
           <Button
             aria-label="Rotate camera left"
             onClick={() => sceneRef.current?.rotateCamera(-1)}
             size="icon-sm"
             type="button"
-            variant="secondary"
+            variant="ghost"
+            className="hover:bg-white/10 text-foreground/90 hover:text-foreground"
           >
             ↶
           </Button>
@@ -178,7 +182,8 @@ export function VirtualTable({
             onClick={() => sceneRef.current?.resetCamera()}
             size="sm"
             type="button"
-            variant="secondary"
+            variant="ghost"
+            className="text-xs font-semibold hover:bg-white/10 text-foreground/90 hover:text-foreground"
           >
             My seat
           </Button>
@@ -187,7 +192,8 @@ export function VirtualTable({
             onClick={() => sceneRef.current?.rotateCamera(1)}
             size="icon-sm"
             type="button"
-            variant="secondary"
+            variant="ghost"
+            className="hover:bg-white/10 text-foreground/90 hover:text-foreground"
           >
             ↷
           </Button>
@@ -225,10 +231,14 @@ function SeatVideoLayer({
         const style = { "--seat-size": "76px" } as CSSProperties;
         const frame = player ? (
           <div
-            aria-label={`${player.name}, ${seat.displayPosition} seat`}
+            aria-current={seat.turnLabel ? "true" : undefined}
+            aria-label={`${player.name}, ${seat.displayPosition} seat${seat.turnLabel ? `, ${seat.turnLabel}` : ""}`}
             className={cn(
-              "relative grid size-[var(--seat-size)] place-items-center rounded-full border bg-gradient-to-br from-emerald-950 to-card font-heading font-bold text-primary shadow-lg pointer-events-auto",
-              seat.team === "two" ? "border-emerald-500/40 text-emerald-400" : "border-primary/40",
+              "relative grid size-[var(--seat-size)] place-items-center rounded-full border-2 bg-gradient-to-br from-[#0a231b] to-[#04100c] font-heading font-bold shadow-[0_8px_24px_rgba(0,0,0,0.6)] pointer-events-auto transition-all",
+              seat.team === "two"
+                ? "border-emerald-400/60 text-emerald-300"
+                : "border-primary/70 text-primary",
+              seat.turnLabel && "ring-3 ring-primary/80 shadow-[0_0_24px_rgba(229,197,122,0.55)]",
             )}
           >
             <span className="text-xl" aria-hidden="true">
@@ -239,15 +249,21 @@ function SeatVideoLayer({
               id={`seat-camera-${player.id}`}
             />
             {seat.ready && (
-              <span className="absolute right-0 bottom-0 z-20 grid size-4.5 place-items-center rounded-full border border-background bg-emerald-500 text-[10px] font-bold text-emerald-950">
+              <span className="absolute right-0 bottom-0 z-20 grid size-5 place-items-center rounded-full border-2 border-[#081611] bg-emerald-500 text-[10px] font-bold text-emerald-950 shadow-md">
                 ✓
               </span>
+            )}
+            {seat.turnLabel && (
+              <span
+                aria-hidden="true"
+                className="absolute -right-1 top-1 z-30 size-3.5 rounded-full border-2 border-[#081611] bg-primary shadow-[0_0_14px_rgba(229,197,122,1)] motion-safe:animate-pulse"
+              />
             )}
           </div>
         ) : onSeatSelect ? (
           <button
             aria-label={`Move to the ${seat.sourcePosition} seat`}
-            className="relative grid size-[var(--seat-size)] place-items-center rounded-full border border-dashed border-border bg-white/5 font-heading text-xl font-bold text-muted-foreground shadow-sm transition-transform hover:scale-105 hover:border-primary hover:text-primary pointer-events-auto active:scale-95"
+            className="relative grid size-[var(--seat-size)] place-items-center rounded-full border-2 border-dashed border-white/25 bg-black/25 font-heading text-xl font-bold text-muted-foreground shadow-sm transition-all hover:scale-105 hover:border-primary hover:text-primary hover:bg-black/40 hover:shadow-[0_0_16px_rgba(229,197,122,0.3)] pointer-events-auto active:scale-95"
             onClick={() => onSeatSelect(seat.sourcePosition)}
             type="button"
           >
@@ -263,7 +279,7 @@ function SeatVideoLayer({
           <div
             className={cn(
               "absolute top-0 left-0 grid justify-items-center text-center opacity-0 will-change-transform pointer-events-none",
-              seat.turnLabel && "drop-shadow-[0_0_8px_rgba(229,197,122,0.5)]",
+              seat.turnLabel && "drop-shadow-[0_0_12px_rgba(229,197,122,0.6)]",
             )}
             data-seat-position={seat.displayPosition}
             key={seat.sourcePosition}
@@ -271,41 +287,36 @@ function SeatVideoLayer({
             style={style}
           >
             {frame}
-            <strong className="mt-1.5 max-w-[110px] truncate text-[11px] font-medium leading-tight text-foreground">
+            <strong className="mt-1.5 max-w-[120px] truncate font-heading text-xs font-bold text-[#f3f0e8] drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
               {player?.name ?? "Open seat"}
             </strong>
-            {seat.turnLabel ? (
-              <span className="mt-0.5 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[9px] font-semibold text-white shadow-xs">
-                {seat.turnLabel}
-              </span>
-            ) : (
-              <small className="text-[10px] text-muted-foreground">
-                {player
-                  ? !player.connected
-                    ? "Reconnecting…"
-                    : player.isBot
-                      ? "Bot"
-                      : seat.ready
-                        ? "Ready"
-                        : "At table"
-                  : "Available"}
-              </small>
-            )}
+            <small className="text-[10px] font-medium text-muted-foreground/90">
+              {player
+                ? !player.connected
+                  ? "Reconnecting…"
+                  : player.isBot
+                    ? "Bot"
+                    : seat.ready
+                      ? "Ready"
+                      : "At table"
+                : "Available"}
+            </small>
             {seat.bidWinner && (
-              <span className="absolute -top-1 -right-2 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold text-primary-foreground shadow-sm">
-                Bid {seat.bidAmount ?? "won"}
+              <span className="absolute -top-2 -right-2 z-30 flex items-center gap-1 rounded-full border border-primary/60 bg-[#091f18] px-2.5 py-0.5 text-[9px] font-bold text-primary shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                <span aria-hidden="true">♛</span>
+                <span>Bid {seat.bidAmount ?? "won"}</span>
               </span>
             )}
             {seat.trickWins > 0 && (
               <span
                 aria-label={`${seat.trickWins} tricks won`}
-                className="absolute top-1/2 -left-3 grid size-5 -translate-y-1/2 place-items-center rounded-full border border-background bg-primary text-[9px] font-bold text-primary-foreground shadow-sm"
+                className="absolute top-1/2 -left-3 grid size-5.5 -translate-y-1/2 place-items-center rounded-full border-2 border-[#081611] bg-gradient-to-br from-primary to-[#c9a650] text-[10px] font-black text-primary-foreground shadow-md"
               >
                 {seat.trickWins}
               </span>
             )}
             {model.dealerPosition === seat.displayPosition && (
-              <span className="absolute -top-1 -left-2 grid size-5 place-items-center rounded-full border border-border bg-muted text-[9px] font-bold text-foreground shadow-sm">
+              <span className="absolute -top-2 -left-2 z-30 grid size-5.5 place-items-center rounded-full border-2 border-[#081611] bg-gradient-to-br from-amber-400 to-amber-600 text-[10px] font-black text-amber-950 shadow-md">
                 D
               </span>
             )}
@@ -364,13 +375,15 @@ function TableAccessibility({
 
 function applySeatProjection(
   element: HTMLDivElement | undefined,
+  position: RelativePosition,
   projection: SeatProjection,
 ) {
   if (!element) return;
   element.style.opacity = projection.visible ? "1" : "0";
   element.style.visibility = projection.visible ? "visible" : "hidden";
   element.style.zIndex = String(10 + Math.round(projection.scale * 20));
-  element.style.transform = `translate3d(${projection.x}px, ${projection.y}px, 0) translate(-50%, -50%) scale(${projection.scale})`;
+  const clearHandOffset = position === "south" ? 110 * projection.scale : 0;
+  element.style.transform = `translate3d(${projection.x}px, ${projection.y + clearHandOffset}px, 0) translate(-50%, -50%) scale(${projection.scale})`;
 }
 
 const suitSymbol = (suit: Card["suit"]) =>

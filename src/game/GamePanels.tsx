@@ -56,15 +56,15 @@ export function BiddingPanel({ actionError, bidAmount, onBid, onPass, room, setB
         }`;
 
   return (
-    <Card className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[min(860px,calc(100%-2rem))] z-40 bg-card/95 backdrop-blur-md border-border shadow-2xl animate-in fade-in-0 slide-in-from-bottom-2" size="sm">
+    <Card className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[min(860px,calc(100%-2rem))] z-40 bg-[#081f18]/95 backdrop-blur-md border-primary/35 shadow-[0_16px_48px_rgba(0,0,0,0.7),0_0_24px_rgba(229,197,122,0.12)] rounded-xl animate-in fade-in-0 slide-in-from-bottom-2" size="sm">
       <CardHeader>
-        <CardDescription>{isOpeningBid ? "Opening bid" : "Highest bid"}</CardDescription>
-        <CardTitle>{isOpeningBid ? "100 minimum" : bidding.currentBid}</CardTitle>
+        <CardDescription className="text-xs font-semibold text-primary/80 uppercase tracking-wider">{isOpeningBid ? "Opening auction" : "Current highest bid"}</CardDescription>
+        <CardTitle className="font-heading text-2xl font-bold text-foreground">{isOpeningBid ? "100 minimum" : `${bidding.currentBid} pts`}</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="text-sm font-medium text-muted-foreground">{description}</p>
         {actionError && room.match?.phase === "bidding" && (
-          <Alert className="mt-2" variant="destructive">
+          <Alert className="mt-2.5" variant="destructive">
             <AlertDescription>{actionError}</AlertDescription>
           </Alert>
         )}
@@ -73,8 +73,8 @@ export function BiddingPanel({ actionError, bidAmount, onBid, onPass, room, setB
         <CardFooter className="flex flex-wrap items-end gap-3 pt-1">
           {bidOptions.length > 0 && (
             <>
-              <Field className="w-32">
-                <FieldLabel>Your bid</FieldLabel>
+              <Field className="w-36">
+                <FieldLabel className="text-xs font-semibold text-foreground/80">Your bid</FieldLabel>
                 <Select
                   items={bidItems}
                   onValueChange={(value) => {
@@ -82,24 +82,39 @@ export function BiddingPanel({ actionError, bidAmount, onBid, onPass, room, setB
                   }}
                   value={String(bidAmount)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-lg border-white/15 bg-black/25">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-lg border-white/15 bg-[#081f18]/95 shadow-2xl">
                     <SelectGroup>
                       {bidItems.map((item) => (
                         <SelectItem key={item.value} value={item.value}>
-                          {item.label}
+                          {item.label} pts
                         </SelectItem>
                       ))}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </Field>
-              <Button onClick={onBid} type="button">Place bid</Button>
+              <Button
+                onClick={onBid}
+                type="button"
+                className="rounded-lg font-bold bg-gradient-to-r from-[#f3dfa7] via-primary to-[#d8b35e] text-primary-foreground shadow-[0_2px_14px_rgba(229,197,122,0.25)] hover:brightness-105"
+              >
+                Place bid
+              </Button>
             </>
           )}
-          {!isOpeningBid && <Button onClick={onPass} type="button" variant="outline">Pass</Button>}
+          {!isOpeningBid && (
+            <Button
+              onClick={onPass}
+              type="button"
+              variant="outline"
+              className="rounded-lg border-white/15 bg-black/20 text-foreground/90 font-semibold hover:bg-white/10"
+            >
+              Pass
+            </Button>
+          )}
         </CardFooter>
       )}
     </Card>
@@ -113,10 +128,10 @@ export function GroundPanel({ actionError, onRemoveCard, onSubmit, selectedCards
   selectedCards: GameCard[];
 }) {
   return (
-    <Card className="absolute top-20 right-4 max-h-[calc(100dvh-6rem)] w-[min(340px,calc(100%-2rem))] overflow-y-auto z-40 bg-card/95 backdrop-blur-md border-border shadow-2xl animate-in fade-in-0 slide-in-from-right-2">
+    <Card className="absolute top-20 right-4 max-h-[calc(100dvh-6rem)] w-[min(360px,calc(100%-2rem))] overflow-y-auto z-40 bg-[#081f18]/95 backdrop-blur-md border-primary/35 shadow-[0_16px_48px_rgba(0,0,0,0.7)] rounded-xl animate-in fade-in-0 slide-in-from-right-2">
       <CardHeader>
-        <CardTitle>Prepare the hand</CardTitle>
-        <CardDescription>Select four cards to discard. Your opening card will establish trump.</CardDescription>
+        <CardTitle className="font-heading text-lg font-bold text-foreground">Prepare the hand</CardTitle>
+        <CardDescription className="text-xs text-muted-foreground">Select four cards to discard. Your opening lead establishes trump.</CardDescription>
       </CardHeader>
       <CardContent>
         {selectedCards.length > 0 && (
@@ -124,13 +139,13 @@ export function GroundPanel({ actionError, onRemoveCard, onSubmit, selectedCards
             {selectedCards.map((card) => (
               <button
                 aria-label={`Remove ${card.rank} of ${card.suit} from discards`}
-                className="relative aspect-[5/7] w-14 overflow-hidden rounded-md border border-border shadow-md transition-transform hover:scale-105"
+                className="relative aspect-[5/7] w-14 overflow-hidden rounded-md border border-primary/40 shadow-md transition-all hover:scale-105 hover:border-destructive group"
                 key={card.id}
                 onClick={() => onRemoveCard(card.id)}
                 type="button"
               >
                 <CardFace card={card} className="w-full h-full object-cover" />
-                <span className="absolute top-0.5 right-0.5 grid size-4 place-items-center rounded-full bg-background/90 text-xs font-bold text-destructive" aria-hidden="true">×</span>
+                <span className="absolute top-0.5 right-0.5 grid size-4 place-items-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground shadow-sm" aria-hidden="true">×</span>
               </button>
             ))}
           </div>
@@ -142,7 +157,12 @@ export function GroundPanel({ actionError, onRemoveCard, onSubmit, selectedCards
         )}
       </CardContent>
       <CardFooter>
-        <Button disabled={selectedCards.length !== 4} onClick={onSubmit} type="button">
+        <Button
+          disabled={selectedCards.length !== 4}
+          onClick={onSubmit}
+          type="button"
+          className="w-full rounded-lg font-bold bg-gradient-to-r from-[#f3dfa7] via-primary to-[#d8b35e] text-primary-foreground shadow-[0_2px_14px_rgba(229,197,122,0.25)] disabled:opacity-50"
+        >
           Discard {selectedCards.length}/4 and continue
         </Button>
       </CardFooter>
@@ -169,37 +189,45 @@ export function ResultPanel({ actionError, onToggleReady, room }: {
       : `${teamLabel(result.biddingTeam, viewerTeam)} missed the ${result.bid} bid`;
 
   return (
-    <Card className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(880px,calc(100%-2rem))] max-h-[85vh] overflow-y-auto z-50 bg-card/95 backdrop-blur-md border-border shadow-2xl animate-in fade-in-0 zoom-in-95">
+    <Card className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(880px,calc(100%-2rem))] max-h-[85vh] overflow-y-auto z-50 bg-[#081f18]/95 backdrop-blur-md border-primary/40 shadow-[0_24px_64px_rgba(0,0,0,0.8),0_0_32px_rgba(229,197,122,0.18)] rounded-xl animate-in fade-in-0 zoom-in-95">
       <CardHeader>
-        <CardDescription>Hand {room.match?.handNumber} result</CardDescription>
-        <CardTitle>{outcome}</CardTitle>
-        {room.matchWinnerTeam && <Badge className="w-fit">{teamLabel(room.matchWinnerTeam, viewerTeam)} wins the match</Badge>}
+        <CardDescription className="text-xs font-semibold uppercase tracking-wider text-primary/80">Hand {room.match?.handNumber} result</CardDescription>
+        <CardTitle className="font-heading text-2xl font-bold text-foreground">{outcome}</CardTitle>
+        {room.matchWinnerTeam && (
+          <Badge className="w-fit bg-primary text-primary-foreground font-bold shadow-md">
+            {teamLabel(room.matchWinnerTeam, viewerTeam)} wins the match
+          </Badge>
+        )}
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2">
         {displayedTeams.map((team) => (
           <article
             className={cn(
-              "flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/30 p-3",
+              "flex flex-col gap-2 rounded-lg border border-white/10 bg-black/25 p-3.5",
               result.biddingTeam === team && "border-primary/50 bg-primary/5",
             )}
             key={team}
           >
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-sm">{teamLabel(team, viewerTeam)}</span>
-              {result.biddingTeam === team && <Badge variant="outline">Bidding team</Badge>}
+              <span className="font-bold text-sm text-foreground">{teamLabel(team, viewerTeam)}</span>
+              {result.biddingTeam === team && (
+                <Badge variant="outline" className="border-primary/50 text-primary font-semibold text-[10px]">
+                  Bidding team
+                </Badge>
+              )}
             </div>
-            <dl className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-md border border-border/40 bg-muted/40 p-2">
-                <dt className="text-[10px] text-muted-foreground">Hand</dt>
-                <dd className="font-heading text-sm font-semibold tabular-nums">{result.rawPoints[team]}</dd>
+            <dl className="grid grid-cols-3 gap-2 text-center mt-1">
+              <div className="rounded-md border border-white/8 bg-white/5 p-2">
+                <dt className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Hand</dt>
+                <dd className="font-heading text-base font-bold tabular-nums text-foreground">{result.rawPoints[team]}</dd>
               </div>
-              <div className="rounded-md border border-border/40 bg-muted/40 p-2">
-                <dt className="text-[10px] text-muted-foreground">Change</dt>
-                <dd className="font-heading text-sm font-semibold tabular-nums">{formatScoreDelta(result.scoreDelta[team])}</dd>
+              <div className="rounded-md border border-white/8 bg-white/5 p-2">
+                <dt className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Change</dt>
+                <dd className="font-heading text-base font-bold tabular-nums text-primary">{formatScoreDelta(result.scoreDelta[team])}</dd>
               </div>
-              <div className="rounded-md border border-border/40 bg-muted/40 p-2">
-                <dt className="text-[10px] text-muted-foreground">Match</dt>
-                <dd className="font-heading text-sm font-semibold tabular-nums">{result.matchScore[team]}</dd>
+              <div className="rounded-md border border-white/8 bg-white/5 p-2">
+                <dt className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Match</dt>
+                <dd className="font-heading text-base font-bold tabular-nums text-foreground">{result.matchScore[team]}</dd>
               </div>
             </dl>
           </article>
@@ -211,9 +239,17 @@ export function ResultPanel({ actionError, onToggleReady, room }: {
         )}
       </CardContent>
       {!room.matchWinnerTeam && (
-        <CardFooter className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground">{readyPlayerIds.length} of 4 ready for the next hand</span>
-          <Button onClick={onToggleReady} type="button" variant={isReady ? "secondary" : "default"}>
+        <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+          <span className="text-xs font-medium text-muted-foreground">{readyPlayerIds.length} of 4 ready for next hand</span>
+          <Button
+            onClick={onToggleReady}
+            type="button"
+            variant={isReady ? "secondary" : "default"}
+            className={cn(
+              "rounded-lg font-bold transition-all",
+              !isReady && "bg-gradient-to-r from-[#f3dfa7] via-primary to-[#d8b35e] text-primary-foreground shadow-[0_2px_14px_rgba(229,197,122,0.25)]",
+            )}
+          >
             {isReady ? "Ready for next hand ✓" : "Ready for next hand"}
           </Button>
         </CardFooter>
@@ -228,10 +264,10 @@ export function ForfeitPanel({ room }: { room: Room }) {
   const viewerTeam = getViewerTeam(room);
 
   return (
-    <Card className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(680px,calc(100%-2rem))] z-50 bg-card/95 backdrop-blur-md border-border shadow-2xl animate-in fade-in-0 zoom-in-95">
+    <Card className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(680px,calc(100%-2rem))] z-50 bg-[#081f18]/95 backdrop-blur-md border-primary/40 shadow-[0_24px_64px_rgba(0,0,0,0.8)] rounded-xl animate-in fade-in-0 zoom-in-95">
       <CardHeader>
-        <CardDescription>Match result</CardDescription>
-        <CardTitle>{teamLabel(forfeit.winningTeam, viewerTeam)} wins by forfeit</CardTitle>
+        <CardDescription className="text-xs font-semibold uppercase tracking-wider text-primary/80">Match result</CardDescription>
+        <CardTitle className="font-heading text-2xl font-bold text-foreground">{teamLabel(forfeit.winningTeam, viewerTeam)} wins by forfeit</CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">
@@ -241,7 +277,7 @@ export function ForfeitPanel({ room }: { room: Room }) {
             : "did not reconnect before the grace period ended."}
         </p>
       </CardContent>
-      <CardFooter className="text-sm font-medium text-foreground">
+      <CardFooter className="text-sm font-semibold text-foreground border-t border-white/10 pt-3">
         Final score: {teamLabel("one", viewerTeam)} {room.score.one} · {teamLabel("two", viewerTeam)} {room.score.two}
       </CardFooter>
     </Card>

@@ -43,7 +43,6 @@ type Flow = "create" | "join";
 type Screen = "home" | "setup" | "lobby";
 type TurnContext = {
   playerId: string;
-  action: string;
   seatLabel: string;
 };
 type BiddingStatus = {
@@ -448,18 +447,14 @@ export function App() {
         {room?.match && <MatchScoreboard room={room} />}
 
         {!room?.match && (
-          <div className="absolute top-18 left-1/2 -translate-x-1/2 z-20 w-[min(440px,calc(100%-2rem))] rounded-xl border border-border/60 bg-card/75 p-3 text-center shadow-md backdrop-blur-md pointer-events-none">
-            <h1 className="m-0 font-heading text-lg sm:text-xl font-semibold text-foreground">
-              Gather your players
+          <div className="absolute top-18 left-1/2 -translate-x-1/2 z-20 w-[min(440px,calc(100%-2rem))] rounded-2xl border border-white/12 bg-[#081f18]/90 p-3.5 text-center shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_16px_rgba(229,197,122,0.12)] backdrop-blur-md pointer-events-none">
+            <h1 className="m-0 font-heading text-lg sm:text-xl font-bold tracking-tight text-foreground">
+              Gather your table
             </h1>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs font-medium text-muted-foreground">
               Share the room code. The game starts when all four players are ready.
             </p>
           </div>
-        )}
-
-        {room && turnContext && (
-          <TurnBanner room={room} turn={turnContext} />
         )}
 
         {room && virtualTableEnabled ? (
@@ -616,7 +611,7 @@ export function App() {
         )}
         {room?.match?.phase === "playing" &&
           room.match.play?.currentTurnPlayerId === gameClient.playerId && (
-            <p className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 rounded-full border border-border/70 bg-card/85 px-4 py-1 text-xs text-muted-foreground shadow-md backdrop-blur-md text-center">
+            <p className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 rounded-full border border-primary/40 bg-[#081f18]/90 px-4 py-1.5 text-xs font-medium text-foreground/90 shadow-[0_4px_16px_rgba(0,0,0,0.5),0_0_12px_rgba(229,197,122,0.15)] backdrop-blur-md text-center">
               {selectedPlayCardId
                 ? "Tap the selected card again to play it."
                 : "Tap a card once to preview it."}
@@ -657,30 +652,31 @@ export function App() {
           <ForfeitPanel room={room} />
         )}
 
-        <div className="absolute bottom-3.5 left-3.5 z-30 flex items-center gap-2.5 rounded-lg border border-border/60 bg-card/80 px-3 py-1.5 backdrop-blur-md shadow-md">
+        <div className="absolute bottom-3.5 left-3.5 z-30 flex items-center gap-2.5 rounded-xl border border-white/10 bg-[#081f18]/90 px-3.5 py-2 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.4)]">
           <div className="flex items-center gap-2">
             <span
               className={cn(
                 "size-2 rounded-full",
                 connectionStatus === "connected"
-                  ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"
+                  ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]"
                   : "bg-destructive animate-pulse",
               )}
             />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs font-medium text-foreground/80">
               {connectionStatus === "connected"
                 ? "Connected"
                 : "Reconnecting…"}
             </span>
           </div>
           {!room?.match && (
-            <div className="flex items-center gap-2 border-l border-border/50 pl-2.5">
+            <div className="flex items-center gap-2 border-l border-white/10 pl-3">
               {room?.hostPlayerId === gameClient.playerId && (
                 <Button
                   onClick={toggleBots}
                   size="sm"
                   type="button"
                   variant="outline"
+                  className="rounded-lg border-white/15 bg-card/80 text-xs font-semibold hover:border-primary/40"
                 >
                   {hasBots ? "Remove bots" : "Fill bots"}
                 </Button>
@@ -690,6 +686,10 @@ export function App() {
                 size="sm"
                 type="button"
                 variant={ready ? "secondary" : "default"}
+                className={cn(
+                  "rounded-lg text-xs font-bold transition-all",
+                  !ready && "bg-gradient-to-r from-primary via-[#edd493] to-primary text-primary-foreground shadow-[0_2px_12px_rgba(229,197,122,0.3)]",
+                )}
               >
                 {ready ? "Ready ✓" : "I’m ready"}
               </Button>
@@ -848,34 +848,57 @@ function MatchScoreboard({ room }: { room: Room }) {
   const opponentTeam = otherTeam(viewerTeam);
 
   return (
-    <section className="absolute top-18 sm:top-4 left-1/2 -translate-x-1/2 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-3 min-h-11 w-[min(440px,calc(100%-2rem))] px-4 py-1.5 rounded-xl border border-border/70 bg-card/85 backdrop-blur-md shadow-md" aria-label="Current match score">
-      <ScoreboardTeam room={room} team={viewerTeam} viewerTeam={viewerTeam} />
-      <small className="text-[10px] font-medium text-muted-foreground tracking-wide">First to 1,000</small>
-      <ScoreboardTeam
-        room={room}
-        team={opponentTeam}
-        viewerTeam={viewerTeam}
-      />
+    <section
+      aria-label="Current match score"
+      className="absolute top-18 sm:top-4 left-1/2 -translate-x-1/2 z-30 flex items-center justify-between gap-2.5 sm:gap-4 min-h-12 w-[min(460px,calc(100%-2rem))] px-4 py-2 rounded-2xl border border-white/12 bg-[#081f18]/90 shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_16px_rgba(229,197,122,0.1)] backdrop-blur-md"
+    >
+      <ScoreboardTeam isViewer room={room} team={viewerTeam} viewerTeam={viewerTeam} />
+      <div className="flex flex-col items-center justify-center shrink-0 px-2 py-0.5 border-x border-white/10">
+        <span className="font-heading text-[10px] font-bold uppercase tracking-wider text-primary/80">Target</span>
+        <strong className="text-xs font-semibold tabular-nums text-foreground/90">1,000</strong>
+      </div>
+      <ScoreboardTeam isViewer={false} room={room} team={opponentTeam} viewerTeam={viewerTeam} />
     </section>
   );
 }
 
 function ScoreboardTeam({
+  isViewer,
   room,
   team,
   viewerTeam,
 }: {
+  isViewer: boolean;
   room: Room;
   team: Team;
   viewerTeam: Team;
 }) {
+  const isTeamOne = team === "one";
   return (
-    <div className="flex min-w-0 items-center justify-between gap-2">
-      <div className="min-w-0">
-        <span className="block truncate text-[11px] font-semibold text-muted-foreground">{teamLabel(team, viewerTeam)}</span>
-        <small className="block truncate text-[9px] text-muted-foreground/70">{teamPlayerNames(room, team)}</small>
+    <div className={cn("flex min-w-0 flex-1 items-center gap-2.5", !isViewer && "flex-row-reverse")}>
+      <div className={cn("min-w-0 flex-1", !isViewer && "text-right")}>
+        <div className={cn("flex items-center gap-1.5", isViewer ? "justify-start" : "justify-end")}>
+          <span
+            className={cn(
+              "size-1.5 rounded-full shrink-0",
+              isTeamOne ? "bg-primary shadow-[0_0_6px_rgba(229,197,122,0.8)]" : "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]",
+            )}
+            aria-hidden="true"
+          />
+          <span className="truncate text-[11px] font-bold tracking-wide text-foreground/90">
+            {teamLabel(team, viewerTeam)}
+          </span>
+        </div>
+        <small className="block truncate text-[9px] font-medium text-muted-foreground">
+          {teamPlayerNames(room, team)}
+        </small>
       </div>
-      <strong className={cn("font-heading text-xl font-semibold tabular-nums", team === "one" ? "text-primary" : "text-emerald-400")}>
+      <strong
+        className={cn(
+          "font-heading text-2xl font-bold tabular-nums shrink-0 leading-none",
+          isTeamOne ? "text-primary" : "text-emerald-300",
+        )}
+      >
         {room.score[team]}
       </strong>
     </div>
@@ -1092,7 +1115,6 @@ function getTurnContext(room: Room | null): TurnContext | null {
   if (match.phase === "bidding" && match.bidding.currentTurnPlayerId) {
     return {
       playerId: match.bidding.currentTurnPlayerId,
-      action: "Choose a bid or pass.",
       seatLabel: "Bidding now",
     };
   }
@@ -1100,7 +1122,6 @@ function getTurnContext(room: Room | null): TurnContext | null {
   if (match.phase === "ground" && match.bidding.winnerId) {
     return {
       playerId: match.bidding.winnerId,
-      action: "Discard four cards before the opening lead.",
       seatLabel: "Discarding",
     };
   }
@@ -1108,45 +1129,11 @@ function getTurnContext(room: Room | null): TurnContext | null {
   if (match.phase === "playing" && match.play?.currentTurnPlayerId) {
     return {
       playerId: match.play.currentTurnPlayerId,
-      action: "Play one of the highlighted cards.",
       seatLabel: "Playing now",
     };
   }
 
   return null;
-}
-
-function TurnBanner({ room, turn }: { room: Room; turn: TurnContext }) {
-  const player = room.players.find(
-    (candidate) => candidate.id === turn.playerId,
-  );
-  if (!player) return null;
-
-  const isYou = player.id === gameClient.playerId;
-  return (
-    <section
-      aria-live="polite"
-      className={cn(
-        "absolute top-28 sm:top-20 left-4 sm:left-6 z-30 flex min-h-12 w-[min(300px,calc(100%-2rem))] items-center gap-3 rounded-xl border bg-card/85 p-3 shadow-md backdrop-blur-md transition-colors",
-        isYou ? "border-primary/50 bg-primary/10" : "border-border/70",
-      )}
-    >
-      <span
-        className={cn(
-          "size-2.5 shrink-0 rounded-full",
-          isYou ? "bg-primary shadow-[0_0_8px_rgba(229,197,122,0.8)]" : "bg-emerald-400",
-        )}
-        aria-hidden="true"
-      />
-      <div className="grid gap-0.5">
-        <small className="text-[10px] font-semibold text-muted-foreground">{isYou ? "Your turn" : "Current turn"}</small>
-        <strong className="font-heading text-xs font-semibold text-foreground">
-          {isYou ? `Your turn, ${player.name}` : `${player.name}'s turn`}
-        </strong>
-      </div>
-      <p className="ml-auto text-[11px] text-muted-foreground">{turn.action}</p>
-    </section>
-  );
 }
 
 function Seat({
@@ -1176,7 +1163,6 @@ function Seat({
   trump?: Card["suit"] | null;
   turn?: TurnContext;
 }) {
-  const isYou = player?.id === gameClient.playerId;
   const bidWinnerDescription = player
     ? trump
       ? `${player.name} won the bid. ${suitLabel(trump)} is trump.`
@@ -1203,7 +1189,10 @@ function Seat({
             "relative mb-1.5 grid size-14 place-items-center rounded-full border border-border bg-card font-heading text-lg font-bold text-foreground shadow-md",
             team === "two" ? "border-emerald-500/40 text-emerald-400" : "border-primary/40 text-primary",
             bidWinner && "ring-2 ring-primary",
+            turn && "ring-3 ring-primary/80 shadow-[0_0_26px_rgba(229,197,122,0.6)]",
           )}
+          aria-current={turn ? "true" : undefined}
+          aria-label={turn && player ? `${player.name}, ${turn.seatLabel}` : undefined}
         >
           {player ? player.name.slice(0, 1).toUpperCase() : <UsersIcon />}
           {player && (
@@ -1231,6 +1220,12 @@ function Seat({
                 {trump ? `Trump ${suitLabel(trump)}` : `Bid ${bidAmount ?? ""}`}
               </small>
             </span>
+          )}
+          {player && turn && (
+            <span
+              aria-hidden="true"
+              className="absolute -right-1 top-1 z-30 size-3 rounded-full border-2 border-[#081611] bg-primary shadow-[0_0_12px_rgba(229,197,122,1)] motion-safe:animate-pulse"
+            />
           )}
           {player && Boolean(trickWins) && (
             <span
@@ -1265,15 +1260,8 @@ function Seat({
           {biddingStatus.label}
         </span>
       )}
-      {turn && (
-        <span className="mt-0.5 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold text-primary-foreground shadow-xs">
-          {isYou ? "Your turn" : turn.seatLabel}
-        </span>
-      )}
       <small className="mt-0.5 text-[10px] text-muted-foreground">
-        {turn
-          ? turn.action
-          : player
+        {player
           ? !player.connected
             ? "Reconnecting…"
             : readiness

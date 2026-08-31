@@ -218,7 +218,7 @@ export function AccountPanel({
             variant: blend ? "ghost" : "outline",
           }),
           !blend && "bg-card/80 backdrop-blur-md",
-          blend && "border border-white/10 bg-black/30 text-foreground shadow-sm backdrop-blur-md hover:bg-black/50 hover:text-foreground",
+          blend && "border border-white/12 bg-black/40 text-foreground/90 shadow-sm backdrop-blur-md hover:border-primary/40 hover:bg-black/60 hover:text-foreground hover:shadow-[0_0_12px_rgba(229,197,122,0.1)]",
           "cursor-pointer transition-all",
         )}
       >
