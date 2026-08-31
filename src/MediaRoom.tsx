@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ConnectionState,
   Participant,
@@ -11,6 +22,7 @@ import {
   VideoPresets,
 } from "livekit-client";
 import { gameClient, type Player } from "./gameClient";
+import { cn } from "@/lib/utils";
 
 type MediaRoomProps = {
   players: Player[];
@@ -62,6 +74,8 @@ const preferredCamera = (
 export function MediaRoom({ players }: MediaRoomProps) {
   const roomRef = useRef<Room | null>(null);
   const audioRootRef = useRef<HTMLDivElement | null>(null);
+  const mountedRef = useRef(false);
+  const joinAttemptRef = useRef(0);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [state, setState] = useState<ConnectionState>(
     ConnectionState.Disconnected,
@@ -81,6 +95,7 @@ export function MediaRoom({ players }: MediaRoomProps) {
       "videoinput",
       requestPermissions,
     );
+    if (!mountedRef.current) return { availableCameras, selected: undefined };
     setCameras(availableCameras);
     const selected = preferredCamera(
       availableCameras,
@@ -114,6 +129,7 @@ export function MediaRoom({ players }: MediaRoomProps) {
   };
 
   const leaveMedia = async () => {
+    joinAttemptRef.current += 1;
     const room = roomRef.current;
     roomRef.current = null;
     if (room) await room.disconnect();
@@ -124,26 +140,32 @@ export function MediaRoom({ players }: MediaRoomProps) {
     setLocalCameraTrack(null);
   };
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      joinAttemptRef.current += 1;
       void roomRef.current?.disconnect();
       roomRef.current = null;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const joinMedia = async () => {
     if (roomRef.current) return;
+    const joinAttempt = ++joinAttemptRef.current;
+    let connectingRoom: Room | null = null;
     setError("");
     setState(ConnectionState.Connecting);
 
     try {
       const credentials = await gameClient.requestMediaToken();
+      if (!mountedRef.current || joinAttempt !== joinAttemptRef.current) return;
       const room = new Room({
         adaptiveStream: true,
         dynacast: true,
         videoCaptureDefaults: CAMERA_CAPTURE_DEFAULTS,
       });
+      connectingRoom = room;
       roomRef.current = room;
 
       const sync = () => syncRoom(room);
@@ -197,10 +219,29 @@ export function MediaRoom({ players }: MediaRoomProps) {
       await room.connect(credentials.url, credentials.token, {
         peerConnectionTimeout: 15_000,
       });
+      if (!mountedRef.current || joinAttempt !== joinAttemptRef.current) {
+        if (roomRef.current === room) roomRef.current = null;
+        await room.disconnect();
+        return;
+      }
       await refreshCameras(false);
+      if (!mountedRef.current || joinAttempt !== joinAttemptRef.current) {
+        if (roomRef.current === room) roomRef.current = null;
+        await room.disconnect();
+        return;
+      }
       syncRoom(room);
     } catch (caught) {
-      await leaveMedia();
+      if (connectingRoom && roomRef.current === connectingRoom) {
+        roomRef.current = null;
+        await connectingRoom.disconnect();
+      }
+      if (!mountedRef.current || joinAttempt !== joinAttemptRef.current) return;
+      setParticipants([]);
+      setState(ConnectionState.Disconnected);
+      setMicrophoneEnabled(false);
+      setCameraEnabled(false);
+      setLocalCameraTrack(null);
       setError(mediaConnectionError(caught));
     }
   };
@@ -278,83 +319,105 @@ export function MediaRoom({ players }: MediaRoomProps) {
   const connected = state === ConnectionState.Connected;
 
   return (
-    <aside className="media-room" aria-label="Table voice and video">
-      <div className="media-room-heading">
-        <div>
-          <span className={`media-status ${connected ? "is-live" : ""}`} />
-          <strong>{connected ? "Table conversation is live" : "Voice & video"}</strong>
-          <small>
-            {connected
-              ? `${participants.length} ${
-                  participants.length === 1 ? "person" : "people"
-                } connected`
-              : "Join when you are ready. Camera and microphone start off."}
-          </small>
+    <aside className="flex w-full flex-col gap-3" aria-label="Table voice and video">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "size-2 rounded-full",
+              connected
+                ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                : "bg-muted-foreground/60",
+            )}
+          />
+          <div>
+            <strong className="block font-heading text-xs font-semibold text-foreground">
+              {connected ? "Table conversation is live" : "Voice & video"}
+            </strong>
+            <small className="text-[11px] text-muted-foreground">
+              {connected
+                ? `${participants.length} ${
+                    participants.length === 1 ? "person" : "people"
+                  } connected`
+                : "Join when you are ready. Camera and microphone start off."}
+            </small>
+          </div>
         </div>
-        <div className="media-controls">
+        <div className="flex flex-wrap items-center gap-2">
           {!connected ? (
-            <button
-              className="media-join"
+            <Button
               disabled={state === ConnectionState.Connecting}
               onClick={joinMedia}
+              size="sm"
               type="button"
             >
               {state === ConnectionState.Connecting
                 ? "Joining…"
                 : "Join conversation"}
-            </button>
+            </Button>
           ) : (
             <>
-              <button
+              <Button
                 aria-pressed={microphoneEnabled}
-                className={microphoneEnabled ? "is-on" : ""}
                 onClick={toggleMicrophone}
+                size="sm"
                 type="button"
+                variant={microphoneEnabled ? "secondary" : "outline"}
               >
                 {microphoneEnabled ? "Mic on" : "Mic off"}
-              </button>
-              <button
+              </Button>
+              <Button
                 aria-pressed={cameraEnabled}
-                className={cameraEnabled ? "is-on" : ""}
                 disabled={cameraPending}
                 onClick={toggleCamera}
+                size="sm"
                 type="button"
+                variant={cameraEnabled ? "secondary" : "outline"}
               >
                 {cameraPending
                   ? "Starting camera…"
                   : cameraEnabled
                     ? "Camera on"
                     : "Camera off"}
-              </button>
+              </Button>
               {cameras.length > 1 && (
-                <label className="media-camera-picker">
-                  <span>Camera</span>
-                  <select
-                    aria-label="Camera"
-                    disabled={cameraPending}
-                    onChange={(event) => {
-                      void changeCamera(event.target.value);
+                <Field className="w-36">
+                  <FieldLabel>Camera</FieldLabel>
+                  <Select
+                    items={cameras.map((camera, index) => ({
+                      label: camera.label || `Camera ${index + 1}`,
+                      value: camera.deviceId,
+                    }))}
+                    onValueChange={(value) => {
+                      if (value) void changeCamera(value);
                     }}
                     value={selectedCameraId}
                   >
-                    {cameras.map((camera, index) => (
-                      <option key={camera.deviceId} value={camera.deviceId}>
-                        {camera.label || `Camera ${index + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    <SelectTrigger aria-label="Camera" disabled={cameraPending} size="sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {cameras.map((camera, index) => (
+                          <SelectItem key={camera.deviceId} value={camera.deviceId}>
+                            {camera.label || `Camera ${index + 1}`}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
               )}
-              <button className="media-leave" onClick={leaveMedia} type="button">
+              <Button onClick={leaveMedia} size="sm" type="button" variant="destructive">
                 Leave call
-              </button>
+              </Button>
             </>
           )}
         </div>
       </div>
 
       {connected && (
-        <div className="media-participants">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {participants.map((participant) => (
             <ParticipantVideo
               key={participant.identity}
@@ -369,11 +432,11 @@ export function MediaRoom({ players }: MediaRoomProps) {
           ))}
         </div>
       )}
-      <div className="media-audio-root" ref={audioRootRef} />
+      <div className="hidden" ref={audioRootRef} />
       {error && (
-        <p className="media-error" role="alert">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
     </aside>
   );
@@ -407,33 +470,25 @@ function ParticipantVideo({
   const microphoneOn = participant.isMicrophoneEnabled;
 
   return (
-    <div className="media-participant">
-      <div
-        className={`media-video ${
-          cameraOn && !seatVideoRoot ? "has-video" : ""
-        }`}
-      >
-        {/* Audio tracks are attached separately, so every video element can
-            stay muted and satisfy mobile autoplay policies. */}
+    <div className="flex min-w-0 items-center gap-2 rounded-lg border border-border/50 bg-muted/40 p-2 shadow-xs">
+      <div className="relative size-10 shrink-0 overflow-hidden rounded-md border border-border/60 bg-gradient-to-br from-emerald-950 to-card font-heading font-bold text-primary grid place-items-center text-xs">
         {cameraOn && !seatVideoRoot && (
           <TrackVideo isLocal={participant.isLocal} track={videoTrack} />
         )}
         {(!cameraOn || seatVideoRoot) && <span>{initials(name)}</span>}
       </div>
-      <div>
-        <strong>
+      <div className="min-w-0 grid gap-0.5">
+        <strong className="truncate text-xs font-medium text-foreground">
           {name}
           {participant.isLocal ? " (you)" : ""}
         </strong>
-        <small>{player ? seatName(player.position) : "At the table"}</small>
+        <small className="truncate text-[10px] text-muted-foreground">{player ? seatName(player.position) : "At the table"}</small>
       </div>
       {cameraOn &&
         seatVideoRoot &&
         createPortal(
           <TrackVideo
-            className={`seat-camera-video ${
-              participant.isLocal ? "is-local" : ""
-            }`}
+            className={cn("h-full w-full object-cover", participant.isLocal && "-scale-x-100")}
             isLocal={participant.isLocal}
             track={videoTrack}
           />,
@@ -445,9 +500,10 @@ function ParticipantVideo({
             aria-label={`${name}'s microphone is ${
               microphoneOn ? "on" : "muted"
             }`}
-            className={`seat-mic-status ${
-              microphoneOn ? "is-on" : "is-muted"
-            }`}
+            className={cn(
+              "absolute bottom-0 left-0 z-30 grid size-4.5 place-items-center rounded-full border border-background",
+              microphoneOn ? "bg-emerald-500 text-emerald-950" : "bg-muted text-muted-foreground",
+            )}
             title={microphoneOn ? "Microphone on" : "Microphone muted"}
           >
             <MicrophoneIcon muted={!microphoneOn} />
@@ -460,7 +516,7 @@ function ParticipantVideo({
 
 function MicrophoneIcon({ muted }: { muted: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="size-2.5 stroke-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 5.4 1.8M15 9.4V6a3 3 0 0 0-5.8-1.1M17 10v1a5 5 0 0 1-.8 2.7M13.8 15.7A5 5 0 0 1 7 11v-1M12 16v4M9 20h6" />
       {muted && <path d="M4 4l16 16" />}
     </svg>
@@ -483,9 +539,6 @@ function TrackVideo({
     if (!track || !element) return;
 
     if (isLocal) {
-      // This track is supplied only after LiveKit has assigned a publication
-      // SID and while the room remains connected, so the preview reflects
-      // what has actually been published to the other players.
       element.srcObject = new MediaStream([track.mediaStreamTrack]);
       void element.play().catch(() => {});
       return () => {
@@ -494,10 +547,7 @@ function TrackVideo({
     }
 
     track.attach(element);
-    void element.play().catch(() => {
-      // Muted inline video normally autoplays. A later browser gesture or
-      // track event will retry if a platform temporarily blocks playback.
-    });
+    void element.play().catch(() => {});
     return () => {
       track.detach(element);
     };
@@ -506,7 +556,7 @@ function TrackVideo({
   return (
     <video
       autoPlay
-      className={className}
+      className={className ?? "absolute inset-0 h-full w-full object-cover"}
       muted
       playsInline
       ref={videoRef}

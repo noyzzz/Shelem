@@ -5,6 +5,23 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { XIcon } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   claimGuestGames,
   fetchConfig,
@@ -18,6 +35,7 @@ import {
   type User,
 } from "./authClient";
 import { gameClient } from "./gameClient";
+import { cn } from "@/lib/utils";
 
 type Mode = "menu" | "login" | "register";
 
@@ -190,165 +208,175 @@ export function AccountPanel({
   };
 
   return (
-    <div className="account-nav">
-      <button
-        className="account-button"
-        onClick={() => setOpen((previous) => !previous)}
-        type="button"
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger
+        className={cn(
+          buttonVariants({ size: "sm", variant: "outline" }),
+          "bg-card/80 backdrop-blur-md cursor-pointer",
+        )}
       >
         {user ? user.name : "Sign in"}
-      </button>
+      </PopoverTrigger>
 
-      <div className={`account-popover ${open ? "" : "is-closed"}`}>
-        <div className="account-popover-header">
-          <strong>{user ? user.name : "Accounts"}</strong>
-          <button
-            className="account-close"
+      <PopoverContent align="end" className="w-[min(320px,calc(100vw-40px))] p-4 shadow-2xl bg-card border-border backdrop-blur-md" sideOffset={10}>
+        <PopoverHeader className="flex flex-row items-center justify-between pb-2 mb-2 border-b border-border/50">
+          <PopoverTitle className="text-sm font-semibold">{user ? user.name : "Accounts"}</PopoverTitle>
+          <Button
+            aria-label="Close account panel"
             onClick={() => setOpen(false)}
+            size="icon-xs"
             type="button"
-            aria-label="Close"
+            variant="ghost"
           >
-            ×
-          </button>
-        </div>
+            <XIcon />
+          </Button>
+        </PopoverHeader>
 
         {user ? (
-          <div className="account-profile">
-            <p className="account-subline">
-              Playing as <strong>{user.username}</strong>
+          <div className="flex flex-col gap-3">
+            <p className="m-0 text-left text-xs text-muted-foreground">
+              Playing as <strong className="text-foreground">{user.username}</strong>
             </p>
             {stats && (
-              <dl className="account-stats">
-                <div>
-                  <dt>Games</dt>
-                  <dd>{stats.games}</dd>
+              <dl className="m-0 grid grid-cols-4 gap-1.5 text-center">
+                <div className="rounded-md border border-border/50 bg-muted/50 p-2">
+                  <dt className="text-[10px] font-medium text-muted-foreground">Games</dt>
+                  <dd className="m-0 mt-0.5 font-heading text-sm font-semibold tabular-nums text-foreground">{stats.games}</dd>
                 </div>
-                <div>
-                  <dt>Wins</dt>
-                  <dd>{stats.wins}</dd>
+                <div className="rounded-md border border-border/50 bg-muted/50 p-2">
+                  <dt className="text-[10px] font-medium text-muted-foreground">Wins</dt>
+                  <dd className="m-0 mt-0.5 font-heading text-sm font-semibold tabular-nums text-foreground">{stats.wins}</dd>
                 </div>
-                <div>
-                  <dt>Losses</dt>
-                  <dd>{stats.losses}</dd>
+                <div className="rounded-md border border-border/50 bg-muted/50 p-2">
+                  <dt className="text-[10px] font-medium text-muted-foreground">Losses</dt>
+                  <dd className="m-0 mt-0.5 font-heading text-sm font-semibold tabular-nums text-foreground">{stats.losses}</dd>
                 </div>
-                <div>
-                  <dt>Win rate</dt>
-                  <dd>{stats.winRate}%</dd>
+                <div className="rounded-md border border-border/50 bg-muted/50 p-2">
+                  <dt className="text-[10px] font-medium text-muted-foreground">Win %</dt>
+                  <dd className="m-0 mt-0.5 font-heading text-sm font-semibold tabular-nums text-foreground">{stats.winRate}%</dd>
                 </div>
               </dl>
             )}
-            <button
-              className="secondary account-claim"
+            <Button
+              className="w-full"
               onClick={handleClaim}
+              size="sm"
               type="button"
+              variant="outline"
             >
               {claimed ? "Games linked" : "Claim games from this device"}
-            </button>
-            <button
-              className="pass-button account-logout"
+            </Button>
+            <Button
+              className="w-full"
               onClick={handleLogout}
+              size="sm"
               type="button"
+              variant="destructive"
             >
               Sign out
-            </button>
+            </Button>
           </div>
         ) : (
           <>
             {mode === "menu" && (
-              <div className="account-mode-buttons">
+              <div className="flex flex-col gap-2">
                 {googleClientId && (
-                  <div className="google-auth-zone">
-                    <div ref={setGoogleHost} className="google-button-host" />
-                    <div className="google-or-divider">
-                      <span />
-                      <small>or</small>
-                      <span />
-                    </div>
+                  <div className="flex flex-col gap-2.5">
+                    <div ref={setGoogleHost} className="flex min-h-10 items-center justify-center" />
+                    <FieldSeparator>or</FieldSeparator>
                   </div>
                 )}
-                <button
-                  className="primary"
+                <Button
+                  className="w-full"
                   onClick={() => setMode("login")}
                   type="button"
                 >
                   Sign in
-                </button>
-                <button
-                  className="secondary"
+                </Button>
+                <Button
+                  className="w-full"
                   onClick={() => setMode("register")}
                   type="button"
+                  variant="outline"
                 >
                   Create an account
-                </button>
+                </Button>
               </div>
             )}
 
             {(mode === "login" || mode === "register") && (
-              <form className="account-form" onSubmit={handleSubmit}>
-                {mode === "register" && (
-                  <label>
-                    Display name
-                    <input
-                      maxLength={24}
-                      onChange={(event) => setField("name")(event.target.value)}
-                      placeholder="How friends know you"
-                      value={form.name}
+              <form className="w-full" onSubmit={handleSubmit}>
+                <FieldGroup>
+                  {mode === "register" && (
+                    <Field>
+                      <FieldLabel htmlFor="account-display-name">Display name</FieldLabel>
+                      <Input
+                        id="account-display-name"
+                        autoComplete="name"
+                        maxLength={24}
+                        onChange={(event) => setField("name")(event.target.value)}
+                        placeholder="How friends know you"
+                        value={form.name}
+                      />
+                    </Field>
+                  )}
+                  <Field>
+                    <FieldLabel htmlFor="account-username">Username</FieldLabel>
+                    <Input
+                      id="account-username"
+                      autoComplete="username"
+                      maxLength={32}
+                      onChange={(event) =>
+                        setField("username")(event.target.value)
+                      }
+                      placeholder="yourname"
+                      value={form.username}
                     />
-                  </label>
-                )}
-                <label>
-                  Username
-                  <input
-                    autoComplete="username"
-                    maxLength={32}
-                    onChange={(event) =>
-                      setField("username")(event.target.value)
-                    }
-                    placeholder="yourname"
-                    value={form.username}
-                  />
-                </label>
-                <label>
-                  Password
-                  <input
-                    autoComplete={
-                      mode === "register" ? "new-password" : "current-password"
-                    }
-                    minLength={8}
-                    onChange={(event) =>
-                      setField("password")(event.target.value)
-                    }
-                    placeholder="At least 8 characters"
-                    type="password"
-                    value={form.password}
-                  />
-                </label>
-                <button className="primary form-submit" type="submit">
-                  {mode === "register" ? "Create account" : "Sign in"}
-                </button>
-                <button
-                  className="account-switch"
-                  onClick={() => {
-                    setMode(mode === "login" ? "register" : "login");
-                    setFormError("");
-                  }}
-                  type="button"
-                >
-                  {mode === "login"
-                    ? "Need an account? Create one"
-                    : "Already have an account? Sign in"}
-                </button>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="account-password">Password</FieldLabel>
+                    <Input
+                      id="account-password"
+                      autoComplete={
+                        mode === "register" ? "new-password" : "current-password"
+                      }
+                      minLength={8}
+                      onChange={(event) =>
+                        setField("password")(event.target.value)
+                      }
+                      placeholder="At least 8 characters"
+                      type="password"
+                      value={form.password}
+                    />
+                  </Field>
+                  <Button className="w-full" type="submit">
+                    {mode === "register" ? "Create account" : "Sign in"}
+                  </Button>
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      setMode(mode === "login" ? "register" : "login");
+                      setFormError("");
+                    }}
+                    type="button"
+                    variant="link"
+                  >
+                    {mode === "login"
+                      ? "Need an account? Create one"
+                      : "Already have an account? Sign in"}
+                  </Button>
+                </FieldGroup>
               </form>
             )}
 
             {formError && (
-              <p className="form-error" role="alert">
-                {formError}
-              </p>
+              <Alert className="mt-2" variant="destructive">
+                <AlertDescription>{formError}</AlertDescription>
+              </Alert>
             )}
           </>
         )}
-      </div>
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }

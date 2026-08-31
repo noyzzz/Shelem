@@ -1,15 +1,13 @@
 import {
   FormEvent,
-  lazy,
-  Suspense,
   useEffect,
   useRef,
   useState,
-  type ComponentType,
   type CSSProperties,
-  type SVGProps,
 } from "react";
-import * as PlayingCardDeck from "@letele/playing-cards";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import {
   gameClient,
   type Card,
@@ -20,10 +18,25 @@ import {
 } from "./gameClient";
 import type { User } from "./authClient";
 import { AccountPanel } from "./AccountPanel";
-
-const MediaRoom = lazy(() =>
-  import("./MediaRoom").then(({ MediaRoom }) => ({ default: MediaRoom })),
-);
+import { VirtualTable } from "./table/VirtualTable";
+import { HomeScreen } from "./screens/HomeScreen";
+import { SetupScreen } from "./screens/SetupScreen";
+import { GameRoomScreen } from "./screens/GameRoomScreen";
+import { GameHud, type HudPanel } from "./game/GameHud";
+import { BiddingPanel, ForfeitPanel, GroundPanel, ResultPanel } from "./game/GamePanels";
+import {
+  getViewerTeam,
+  otherTeam,
+  positionsClockwise,
+  positionFromViewer,
+  teamForPosition,
+  teamLabel,
+  teamPlayerNames,
+} from "./game/gameView";
+import { UsersIcon } from "lucide-react";
+import { Logo } from "./ui/Logo";
+import { CardBack, CardFace } from "./ui/PlayingCard";
+import { cn } from "@/lib/utils";
 
 type Flow = "create" | "join";
 type Screen = "home" | "setup" | "lobby";
@@ -41,22 +54,10 @@ type SeatReadiness = {
   ready: boolean;
 };
 
-const positionsClockwise: Position[] = ["south", "west", "north", "east"];
+const virtualTableRequested =
+  new URLSearchParams(window.location.search).get("renderer") !== "dom";
 const cleanRoomCode = (value: string) =>
   value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
-
-const positionFromViewer = (
-  position: Position,
-  viewerPosition?: Position,
-): Position => {
-  if (!viewerPosition) return position;
-  const relativeIndex =
-    (positionsClockwise.indexOf(position) -
-      positionsClockwise.indexOf(viewerPosition) +
-      positionsClockwise.length) %
-    positionsClockwise.length;
-  return positionsClockwise[relativeIndex];
-};
 
 const getInviteCode = () => {
   const pathMatch = window.location.pathname.match(
@@ -71,56 +72,6 @@ const getInviteCode = () => {
 
 const invitePath = (roomCode: string) => `/join/${roomCode}`;
 
-type PlayingCardComponent = ComponentType<
-  SVGProps<SVGSVGElement> & { title?: string }
->;
-
-const playingCardDeck = PlayingCardDeck as unknown as Record<
-  string,
-  PlayingCardComponent
->;
-const cardSuitPrefix: Record<Card["suit"], string> = {
-  clubs: "C",
-  diamonds: "D",
-  hearts: "H",
-  spades: "S",
-};
-const cardRankSuffix: Record<Card["rank"], string> = {
-  A: "a",
-  K: "k",
-  Q: "q",
-  J: "j",
-  "10": "10",
-  "9": "9",
-  "8": "8",
-  "7": "7",
-  "6": "6",
-  "5": "5",
-  "4": "4",
-  "3": "3",
-  "2": "2",
-};
-
-function CardFace({ card, className }: { card: Card; className?: string }) {
-  const Face =
-    playingCardDeck[`${cardSuitPrefix[card.suit]}${cardRankSuffix[card.rank]}`];
-  return <Face aria-hidden="true" className={className} focusable="false" />;
-}
-
-function CardBack({ className }: { className?: string }) {
-  const Back = playingCardDeck.B1;
-  return <Back aria-hidden="true" className={className} focusable="false" />;
-}
-
-function Logo() {
-  return (
-    <div className="logo" aria-label="PlayRook">
-      <span>ش</span>
-      <strong>PLAYROOK</strong>
-    </div>
-  );
-}
-
 export function App() {
   const inviteCode = getInviteCode();
   const [screen, setScreen] = useState<Screen>(
@@ -133,7 +84,6 @@ export function App() {
   const [roomInput, setRoomInput] = useState(inviteCode);
   const [roomCode, setRoomCode] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
-  const [copied, setCopied] = useState(false);
   const [formError, setFormError] = useState("");
   const [actionError, setActionError] = useState("");
   const [bidAmount, setBidAmount] = useState(100);
@@ -146,6 +96,13 @@ export function App() {
     useState<Position | null>(null);
   const [connectionStatus, setConnectionStatus] = useState("connecting");
   const [accountUser, setAccountUser] = useState<User | null>(null);
+  const [hudPanel, setHudPanel] = useState<HudPanel>(null);
+  const [virtualTableEnabled, setVirtualTableEnabled] = useState(
+    virtualTableRequested,
+  );
+  const [isFullscreen, setIsFullscreen] = useState(
+    () => Boolean(document.fullscreenElement),
+  );
   const acknowledgedTrickReviewIds = useRef(new Set<string>());
   const ready =
     room?.players.find((player) => player.id === gameClient.playerId)?.ready ??
@@ -160,10 +117,6 @@ export function App() {
   const isGroundWinner =
     room?.match?.bidding.winnerId === gameClient.playerId;
   const turnContext = getTurnContext(room);
-  const isFocusedAction =
-    (room?.match?.phase === "ground" && isGroundWinner) ||
-    (room?.match?.phase === "playing" &&
-      room.match.play?.currentTurnPlayerId === gameClient.playerId);
   const selectedDiscardCards =
     room?.match?.yourHand.filter((card) =>
       selectedDiscardIds.includes(card.id),
@@ -174,6 +127,36 @@ export function App() {
       setName(accountUser.name);
     }
   }, [accountUser]);
+
+  useEffect(() => {
+    const immersive = screen === "lobby" && virtualTableEnabled;
+    document.documentElement.classList.toggle("game-is-immersive", immersive);
+    document.body.classList.toggle("game-is-immersive", immersive);
+    if (!immersive && document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {});
+    }
+    return () => {
+      document.documentElement.classList.remove("game-is-immersive");
+      document.body.classList.remove("game-is-immersive");
+    };
+  }, [screen, virtualTableEnabled]);
+
+  useEffect(() => {
+    const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
+
+  useEffect(() => {
+    if (!hudPanel) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !document.fullscreenElement) {
+        setHudPanel(null);
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [hudPanel]);
 
   useEffect(() => {
     gameClient.connect(inviteCode || undefined);
@@ -292,6 +275,7 @@ export function App() {
     window.history.replaceState({}, "", "/");
     setRoom(null);
     setRoomCode("");
+    setHudPanel(null);
     setScreen("home");
   };
 
@@ -421,106 +405,101 @@ export function App() {
   };
 
   const playableCardIds = getPlayableCardIds(room);
+  const tableCopy = room
+    ? getVirtualTableCopy(room, viewerTeam, isGroundWinner, roomCode)
+    : { detail: "", status: "Waiting for the table" };
 
   const copyInvite = async () => {
     const invite = `${window.location.origin}${invitePath(roomCode)}`;
     await navigator.clipboard?.writeText(invite);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    toast.add({ title: "Invite link copied", type: "success" });
+  };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+      setHudPanel(null);
+    } catch {
+      setActionError("Fullscreen is not available in this browser.");
+    }
   };
 
   if (screen === "lobby") {
     return (
-      <main
-        className={`lobby-shell ${room?.match ? "is-match-active" : ""} ${
-          isFocusedAction ? "is-focused-action" : ""
-        }`}
+      <GameRoomScreen
+        hud={<GameHud
+          fullscreenEnabled={document.fullscreenEnabled}
+          isFullscreen={isFullscreen}
+          onCopyInvite={copyInvite}
+          onLeave={leaveRoom}
+          onPanelChange={setHudPanel}
+          onToggleFullscreen={toggleFullscreen}
+          openPanel={hudPanel}
+          playerName={currentPlayer?.name ?? name}
+          players={room?.players ?? []}
+          roomCode={roomCode}
+        />}
       >
-        <header className="lobby-header">
-          <Logo />
-          <div className="room-actions">
-            <span className="player-identity">
-              Playing as <strong>{currentPlayer?.name ?? name}</strong>
-            </span>
-            <span className="room-label">Private room</span>
-            <button className="code-button" onClick={copyInvite} type="button">
-              <span>{roomCode}</span>
-              <CopyIcon />
-            </button>
-            <button
-              className="leave-button"
-              onClick={leaveRoom}
-              type="button"
-            >
-              Leave
-            </button>
-          </div>
-        </header>
+        {room?.match && <MatchScoreboard room={room} />}
 
-        <section className="lobby-content">
-          {room?.match && <MatchScoreboard room={room} />}
-          <div className="lobby-title">
-            {room?.match && (
-              <p className="eyebrow">Hand {room.match.handNumber}</p>
-            )}
-            <h1>
-              {room?.match?.phase === "match-complete"
-                ? "The match is over."
-                : room?.match?.phase === "hand-results"
-                ? "The hand is scored."
-                : room?.match?.phase === "playing"
-                ? "Trump is declared."
-                : room?.match?.phase === "ground-reveal"
-                ? isGroundWinner
-                  ? "Your zamin is revealed."
-                  : "The bidder is viewing the zamin."
-                : room?.match?.phase === "ground"
-                ? "The bid is won."
-                : room?.match
-                  ? "The cards are dealt."
-                  : "Gather your players"}
+        {!room?.match && (
+          <div className="absolute top-18 left-1/2 -translate-x-1/2 z-20 w-[min(440px,calc(100%-2rem))] rounded-xl border border-border/60 bg-card/75 p-3 text-center shadow-md backdrop-blur-md pointer-events-none">
+            <h1 className="m-0 font-heading text-lg sm:text-xl font-semibold text-foreground">
+              Gather your players
             </h1>
-            <p>
-              {room?.match?.phase === "match-complete"
-                ? `${teamLabel(
-                    room.match.forfeit?.winningTeam ??
-                      room.matchWinnerTeam ??
-                      "one",
-                    viewerTeam,
-                  )} wins by forfeit.`
-                : room?.match?.phase === "ground-reveal"
-                ? isGroundWinner
-                  ? "Only you can see these four cards before they enter your hand."
-                  : "The four cards remain hidden while the winning bidder reviews them."
-                : room?.match?.phase === "ground"
-                ? "The winning bidder will discard four cards before leading."
-                : room?.match?.phase === "hand-results"
-                  ? room.match.result?.shelem
-                    ? "Shelem! All 165 points went to the bidding team."
-                    : room.match.result?.madeBid
-                      ? "The bidding team made its contract."
-                      : "The bidding team missed its contract."
-                : room?.match?.phase === "playing"
-                  ? "The bidder’s opening card establishes trump for the hand."
-                : room?.match
-                ? "Your hand is private. Bidding is now open."
-                : "Share the room code. The game starts when all four players are ready."}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Share the room code. The game starts when all four players are ready.
             </p>
           </div>
+        )}
 
-          {room && turnContext && (
-            <TurnBanner room={room} turn={turnContext} />
-          )}
+        {room && turnContext && (
+          <TurnBanner room={room} turn={turnContext} />
+        )}
 
-          {room && (
-            <Suspense
-              fallback={<div className="media-room media-room-loading">Loading conversation…</div>}
-            >
-              <MediaRoom players={room.players} />
-            </Suspense>
-          )}
-
-          <div className="table-wrap">
+        {room && virtualTableEnabled ? (
+          <VirtualTable
+            detail={tableCopy.detail}
+            enabledIds={
+              room.match?.phase === "playing" ? playableCardIds : []
+            }
+            interactionBlocked={
+              hudPanel !== null ||
+              room.match?.phase === "hand-results" ||
+              room.match?.phase === "match-complete"
+            }
+            onCardAction={
+              room.match?.phase === "playing"
+                ? selectOrPlayCard
+                : toggleDiscard
+            }
+            onRendererUnavailable={() => setVirtualTableEnabled(false)}
+            onSeatSelect={
+              !room.match && !seatChangePending ? changeSeat : undefined
+            }
+            room={room}
+            selectable={
+              (room.match?.phase === "ground" &&
+                room.match.bidding.winnerId === gameClient.playerId) ||
+              (room.match?.phase === "playing" &&
+                room.match.play?.currentTurnPlayerId === gameClient.playerId)
+            }
+            selectedIds={
+              room.match?.phase === "playing"
+                ? selectedPlayCardId
+                  ? [selectedPlayCardId]
+                  : []
+                : selectedDiscardIds
+            }
+            status={tableCopy.status}
+            viewerPosition={room.match ? currentPlayer?.position : undefined}
+          />
+        ) : (
+          <div className="relative mx-auto mt-20 h-[480px] w-[min(820px,100%)]">
             {positionsClockwise.map((position) => {
               const player = room?.players.find(
                 (candidate) => candidate.position === position,
@@ -572,536 +551,211 @@ export function App() {
               );
             })}
 
-            <div className="card-table">
-              <div className="table-line" />
+            <div className="absolute top-[22.5%] left-[20%] flex h-[55%] w-[60%] flex-col items-center justify-center rounded-[40%] border border-primary/20 bg-emerald-950/80 shadow-2xl backdrop-blur-sm">
               {room?.match?.phase === "playing" ? (
                 <TableTrick
                   room={room}
                   viewerPosition={currentPlayer?.position}
                 />
               ) : (
-                <div className="deck" aria-hidden="true">
-                  <CardBack />
-                  <CardBack />
-                  <CardBack />
+                <div className="mb-3 flex h-14 w-10 items-center justify-center gap-0.5" aria-hidden="true">
+                  <CardBack className="h-full w-full" />
                 </div>
               )}
-              <div className="table-status">
-                <strong>
-                {room?.match
-                  ? room.match.phase === "match-complete"
-                    ? `${teamLabel(room.matchWinnerTeam ?? "one", viewerTeam)} wins`
-                    : room.match.phase === "hand-results"
-                    ? `${teamLabel("one", viewerTeam)} ${
-                        room.match.result?.rawPoints.one
-                      } · ${teamLabel("two", viewerTeam)} ${
-                        room.match.result?.rawPoints.two
-                      }`
-                    : room.match.phase === "playing"
-                    ? room.match.play?.resolvingTrickWinnerId
-                      ? `${
-                          room.players.find(
-                            (player) =>
-                              player.id ===
-                              room.match?.play?.resolvingTrickWinnerId,
-                          )?.name ?? "The winner"
-                        } wins the trick`
-                      : `Trick ${
-                          (room.match.play?.completedTrickCount ?? 0) + 1
-                        } of 12`
-                    : room.match.phase === "ground-reveal"
-                    ? isGroundWinner
-                      ? "Your four zamin cards are revealed"
-                      : "The zamin is hidden"
-                    : room.match.phase === "ground"
-                    ? `${
-                        room.players.find(
-                          (player) =>
-                            player.id === room.match?.bidding.winnerId,
-                        )?.name ?? "The bidder"
-                      } won with ${room.match.bidding.winningBid}`
-                    : room.match.bidding.currentBid === null
-                    ? "Opening bid: 100 minimum"
-                    : `Current bid: ${room.match.bidding.currentBid}`
-                  : room?.players.length === 4
-                  ? "All players have joined"
-                  : `Waiting for ${4 - (room?.players.length ?? 1)} ${
-                      4 - (room?.players.length ?? 1) === 1
-                        ? "player"
-                        : "players"
-                    }`}
-              </strong>
-              <small>
-                {room?.match?.phase === "match-complete"
-                  ? "The match ended by forfeit"
-                  : room?.match?.phase === "hand-results"
-                  ? `Bid: ${room.match.result?.bid} · ${suitLabel(room.match.trump)} was trump`
-                  : room?.match?.phase === "playing"
-                  ? room.match.play?.resolvingTrickWinnerId
-                    ? "Reviewing all four played cards"
-                    : room.match.trump
-                    ? `${suitLabel(room.match.trump)} is trump`
-                    : "The opening card will establish trump"
-                  : room?.match?.phase === "ground-reveal"
-                  ? isGroundWinner
-                    ? "These cards will enter your hand in a moment"
-                    : "Waiting for the bidder to review their cards"
-                  : room?.match?.phase === "ground"
-                    ? "The winning bidder now holds the four zamin cards"
-                  : room?.match
-                  ? `${room.match.groundCount} cards are face down in the zamin`
-                  : `Invite friends using code ${roomCode}`}
+              <div className="relative z-10 grid justify-items-center text-center">
+                <strong className="font-heading text-sm font-semibold text-foreground">
+                  {tableCopy.status}
+                </strong>
+                <small className="mt-1 text-xs text-muted-foreground">
+                  {tableCopy.detail}
                 </small>
               </div>
             </div>
           </div>
+        )}
 
-          {!room?.match && actionError && (
-            <p className="table-action-error action-error" role="alert">
-              {actionError}
+        {!room?.match && actionError && (
+          <Alert className="absolute top-20 left-1/2 -translate-x-1/2 z-40 max-w-md shadow-lg" variant="destructive">
+            <AlertDescription>{actionError}</AlertDescription>
+          </Alert>
+        )}
+
+        {!virtualTableEnabled && room?.match?.phase === "ground-reveal" &&
+          room.match.groundCards.length > 0 && (
+          <GroundRevealPanel cards={room.match.groundCards} />
+        )}
+
+        {!virtualTableEnabled && room?.match &&
+          room.match.phase !== "hand-results" &&
+          room.match.phase !== "match-complete" && (
+          <Hand
+            cards={room.match.yourHand}
+            enabledIds={
+              room.match.phase === "playing" ? playableCardIds : undefined
+            }
+            onToggle={
+              room.match.phase === "playing"
+                ? selectOrPlayCard
+                : toggleDiscard
+            }
+            selectable={
+              (room.match.phase === "ground" &&
+                room.match.bidding.winnerId === gameClient.playerId) ||
+              (room.match.phase === "playing" &&
+                room.match.play?.currentTurnPlayerId === gameClient.playerId)
+            }
+            selectedIds={
+              room.match.phase === "playing"
+                ? selectedPlayCardId
+                  ? [selectedPlayCardId]
+                  : []
+                : selectedDiscardIds
+            }
+          />
+        )}
+        {room?.match?.phase === "playing" &&
+          room.match.play?.currentTurnPlayerId === gameClient.playerId && (
+            <p className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 rounded-full border border-border/70 bg-card/85 px-4 py-1 text-xs text-muted-foreground shadow-md backdrop-blur-md text-center">
+              {selectedPlayCardId
+                ? "Tap the selected card again to play it."
+                : "Tap a card once to preview it."}
             </p>
           )}
-
-          {room?.match?.phase === "ground-reveal" &&
-            room.match.groundCards.length > 0 && (
-            <GroundRevealPanel cards={room.match.groundCards} />
-          )}
-
-          {room?.match &&
-            room.match.phase !== "hand-results" &&
-            room.match.phase !== "match-complete" && (
-            <Hand
-              cards={room.match.yourHand}
-              enabledIds={
-                room.match.phase === "playing" ? playableCardIds : undefined
-              }
-              onToggle={
-                room.match.phase === "playing"
-                  ? selectOrPlayCard
-                  : toggleDiscard
-              }
-              selectable={
-                (room.match.phase === "ground" &&
-                  room.match.bidding.winnerId === gameClient.playerId) ||
-                (room.match.phase === "playing" &&
-                  room.match.play?.currentTurnPlayerId === gameClient.playerId)
-              }
-              selectedIds={
-                room.match.phase === "playing"
-                  ? selectedPlayCardId
-                    ? [selectedPlayCardId]
-                    : []
-                  : selectedDiscardIds
-              }
-            />
-          )}
-          {room?.match?.phase === "playing" &&
-            room.match.play?.currentTurnPlayerId === gameClient.playerId && (
-              <p className="play-selection-hint">
-                {selectedPlayCardId
-                  ? "Tap the selected card again to play it."
-                  : "Tap a card once to preview it."}
-              </p>
-            )}
-          {room?.match?.phase === "playing" && actionError && (
-            <p className="table-action-error action-error" role="alert">
-              {actionError}
-            </p>
-          )}
-          {room?.match?.phase === "bidding" && (
-            <BiddingPanel
+        {room?.match?.phase === "playing" && actionError && (
+          <Alert className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 max-w-md shadow-lg" variant="destructive">
+            <AlertDescription>{actionError}</AlertDescription>
+          </Alert>
+        )}
+        {room?.match?.phase === "bidding" && (
+          <BiddingPanel
+            actionError={actionError}
+            bidAmount={bidAmount}
+            onBid={placeBid}
+            onPass={passBid}
+            room={room}
+            setBidAmount={setBidAmount}
+          />
+        )}
+        {room?.match?.phase === "ground" &&
+          room.match.bidding.winnerId === gameClient.playerId && (
+            <GroundPanel
               actionError={actionError}
-              bidAmount={bidAmount}
-              onBid={placeBid}
-              onPass={passBid}
-              room={room}
-              setBidAmount={setBidAmount}
+              onRemoveCard={toggleDiscard}
+              onSubmit={completeGround}
+              selectedCards={selectedDiscardCards}
             />
           )}
-          {room?.match?.phase === "ground" &&
-            room.match.bidding.winnerId === gameClient.playerId && (
-              <GroundPanel
-                actionError={actionError}
-                onRemoveCard={toggleDiscard}
-                onSubmit={completeGround}
-                selectedCards={selectedDiscardCards}
-              />
-            )}
-          {room?.match?.phase === "hand-results" && (
-            <ResultPanel
-              actionError={actionError}
-              onToggleReady={toggleNextHandReady}
-              room={room}
-            />
-          )}
-          {room?.match?.phase === "match-complete" && (
-            <ForfeitPanel room={room} />
-          )}
+        {room?.match?.phase === "hand-results" && (
+          <ResultPanel
+            actionError={actionError}
+            onToggleReady={toggleNextHandReady}
+            room={room}
+          />
+        )}
+        {room?.match?.phase === "match-complete" && (
+          <ForfeitPanel room={room} />
+        )}
 
-          <div className="lobby-footer">
-            <div className="connection-note">
-              <span
-                className={`status-dot ${
-                  connectionStatus === "connected" ? "" : "is-offline"
-                }`}
-              />
+        <div className="absolute bottom-3.5 left-3.5 z-30 flex items-center gap-2.5 rounded-lg border border-border/60 bg-card/80 px-3 py-1.5 backdrop-blur-md shadow-md">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "size-2 rounded-full",
+                connectionStatus === "connected"
+                  ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"
+                  : "bg-destructive animate-pulse",
+              )}
+            />
+            <span className="text-xs text-muted-foreground">
               {connectionStatus === "connected"
-                ? "Connected to the game server"
-                : "Reconnecting to the game server…"}
-            </div>
-            {room?.match ? (
-              <span className="match-status">
-                {room.match.phase === "match-complete"
-                  ? "Match complete"
-                  : room.match.phase === "ground-reveal"
-                  ? isGroundWinner
-                    ? "Review your private zamin"
-                    : "Waiting for the bidder"
-                  : room.match.phase === "ground"
-                  ? room.match.bidding.winnerId === gameClient.playerId
-                    ? "Choose four cards to discard"
-                    : "Waiting for the bidder"
-                  : room.match.phase === "playing"
-                    ? room.match.play?.currentTurnPlayerId ===
-                      gameClient.playerId
-                      ? "Your turn to play"
-                      : "Trick in progress"
-                    : room.match.phase === "hand-results"
-                      ? room.matchWinnerTeam
-                        ? "Match complete"
-                        : "Hand scored"
-                    : room.match.bidding.currentTurnPlayerId ===
-                      gameClient.playerId
-                    ? "Your turn to bid"
-                    : "Bidding in progress"}
-              </span>
-            ) : (
-              <div className="lobby-controls">
-                {room?.hostPlayerId === gameClient.playerId && (
-                  <button
-                    className="bot-button"
-                    onClick={toggleBots}
-                    type="button"
-                  >
-                    {hasBots ? "Remove bots" : "Fill empty seats with bots"}
-                  </button>
-                )}
-                <button
-                  className={`ready-button ${ready ? "is-ready" : ""}`}
-                  onClick={toggleReady}
-                  type="button"
-                >
-                  {ready ? "Ready ✓" : "I’m ready"}
-                </button>
-              </div>
-            )}
+                ? "Connected"
+                : "Reconnecting…"}
+            </span>
           </div>
-        </section>
-
-        {copied && <div className="toast">Invite link copied</div>}
-      </main>
+          {!room?.match && (
+            <div className="flex items-center gap-2 border-l border-border/50 pl-2.5">
+              {room?.hostPlayerId === gameClient.playerId && (
+                <Button
+                  onClick={toggleBots}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {hasBots ? "Remove bots" : "Fill bots"}
+                </Button>
+              )}
+              <Button
+                onClick={toggleReady}
+                size="sm"
+                type="button"
+                variant={ready ? "secondary" : "default"}
+              >
+                {ready ? "Ready ✓" : "I’m ready"}
+              </Button>
+            </div>
+          )}
+        </div>
+      </GameRoomScreen>
     );
   }
 
   return (
-    <main className="shell">
-      <nav className="home-nav">
+    <main className="relative grid min-h-screen grid-cols-1 place-items-center overflow-hidden bg-radial-[ellipse_80%_60%_at_50%_0%] from-emerald-950/35 via-background to-background px-4 py-16 sm:py-24">
+      <nav className="absolute top-0 left-0 flex min-h-[72px] w-full items-center justify-between px-6 sm:px-12 z-30">
         <Logo />
-        <div className="account-nav">
+        <div>
           <AccountPanel onUserChange={setAccountUser} />
         </div>
       </nav>
 
       {screen === "home" ? (
-        <section className="welcome">
-          <div className="suit-row" aria-hidden="true">
-            <span>♣</span>
-            <span>♦</span>
-            <span>♥</span>
-            <span>♠</span>
-          </div>
-          <h1>Play Shelem together.</h1>
-          <p className="intro">Private online tables for four players.</p>
-
-          <div className="actions">
-            <button
-              className="primary"
-              onClick={() => begin("create")}
-              type="button"
-            >
-              Create a table
-              <ArrowIcon />
-            </button>
-            <button
-              className="secondary"
-              onClick={() => begin("join")}
-              type="button"
-            >
-              Join with a code
-            </button>
-          </div>
-
-          <div className="features">
-            <span>
-              <VideoIcon /> Live video
-            </span>
-            <span>
-              <LockIcon /> Private rooms
-            </span>
-            <span>
-              <UsersIcon /> Four players
-            </span>
-          </div>
-        </section>
+        <HomeScreen onBegin={begin} />
       ) : (
-        <section className="setup-card">
-          <button
-            className="back-button"
-            onClick={() => {
-              setFormError("");
-              window.history.replaceState({}, "", "/");
-              setScreen("home");
-            }}
-            type="button"
-            aria-label="Back"
-          >
-            ←
-          </button>
-          <h1>{flow === "create" ? "Take your seat." : "Join a table."}</h1>
-          <p className="setup-copy">
-            {flow === "create"
-              ? "We’ll create a room code for you to share."
-              : "Enter the six-character code shared by the host."}
-          </p>
-
-          <form onSubmit={enterLobby}>
-            <label>
-              Your name
-              <input
-                autoFocus
-                maxLength={24}
-                onChange={(event) => {
-                  setName(event.target.value);
-                  setFormError("");
-                }}
-                placeholder="How friends know you"
-                value={name}
-              />
-            </label>
-
-            {flow === "join" && (
-              <label>
-                Room code
-                <input
-                  className="room-input"
-                  maxLength={6}
-                  onChange={(event) => {
-                    setRoomInput(
-                      cleanRoomCode(event.target.value),
-                    );
-                    setFormError("");
-                  }}
-                  placeholder="ABC123"
-                  value={roomInput}
-                />
-              </label>
-            )}
-
-            {formError && (
-              <p className="form-error" role="alert">
-                {formError}
-              </p>
-            )}
-
-            <button
-              className="primary form-submit"
-              disabled={
-                connectionStatus !== "connected" ||
-                !name.trim() ||
-                (flow === "join" && roomInput.trim().length !== 6)
-              }
-              type="submit"
-            >
-              {flow === "create" ? "Create table" : "Join table"}
-              <ArrowIcon />
-            </button>
-          </form>
-        </section>
+        <SetupScreen
+          connectionStatus={connectionStatus}
+          error={formError}
+          flow={flow}
+          name={name}
+          onBack={() => {
+            setFormError("");
+            window.history.replaceState({}, "", "/");
+            setScreen("home");
+          }}
+          onNameChange={(nextName) => {
+            setName(nextName);
+            setFormError("");
+          }}
+          onRoomCodeChange={(code) => {
+            setRoomInput(cleanRoomCode(code));
+            setFormError("");
+          }}
+          onSubmit={enterLobby}
+          roomCode={roomInput}
+        />
       )}
     </main>
   );
 }
 
-function BiddingPanel({
-  actionError,
-  bidAmount,
-  onBid,
-  onPass,
-  room,
-  setBidAmount,
-}: {
-  actionError: string;
-  bidAmount: number;
-  onBid: () => void;
-  onPass: () => void;
-  room: Room;
-  setBidAmount: (amount: number) => void;
-}) {
-  const bidding = room.match?.bidding;
-  if (!bidding) return null;
-
-  const highBidder = room.players.find(
-    (player) => player.id === bidding.highBidderId,
-  );
-  const currentPlayer = room.players.find(
-    (player) => player.id === bidding.currentTurnPlayerId,
-  );
-  const winner = room.players.find((player) => player.id === bidding.winnerId);
-  const isYourTurn =
-    room.match?.phase === "bidding" &&
-    bidding.currentTurnPlayerId === gameClient.playerId;
-  const currentBid = bidding.currentBid;
-  const isOpeningBid = currentBid === null;
-  const minimumBid = currentBid === null ? 100 : currentBid + 5;
-  const bidOptions = Array.from(
-    { length: Math.max(0, Math.floor((165 - minimumBid) / 5) + 1) },
-    (_, index) => minimumBid + index * 5,
-  );
-
-  return (
-    <section className="bidding-panel" aria-label="Bidding">
-      <div className="bidding-summary">
-        <div>
-          <span>{isOpeningBid ? "Opening bid" : "Highest bid"}</span>
-          <strong>{isOpeningBid ? "100 minimum" : bidding.currentBid}</strong>
-        </div>
-        <p>
-          {room.match?.phase !== "bidding"
-            ? `${winner?.name ?? "The bidder"} won the auction.`
-            : isOpeningBid
-              ? `${
-                  isYourTurn
-                    ? "Choose any opening bid from 100 to 165."
-                    : `Waiting for ${currentPlayer?.name ?? "the first bidder"} to open.`
-                }`
-              : `${highBidder?.name ?? "The bidder"} leads. ${
-                isYourTurn
-                  ? "It’s your turn."
-                  : `Waiting for ${currentPlayer?.name ?? "the next player"}.`
-              }`}
-        </p>
-      </div>
-
-      {isYourTurn && (
-        <div className="bid-actions">
-          {bidOptions.length > 0 && (
-            <>
-              <label>
-                Your bid
-                <select
-                  onChange={(event) => setBidAmount(Number(event.target.value))}
-                  value={bidAmount}
-                >
-                  {bidOptions.map((amount) => (
-                    <option key={amount} value={amount}>
-                      {amount}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button className="primary bid-button" onClick={onBid} type="button">
-                Place bid
-              </button>
-            </>
-          )}
-          {!isOpeningBid && (
-            <button className="pass-button" onClick={onPass} type="button">
-              Pass
-            </button>
-          )}
-        </div>
-      )}
-
-      {actionError && room.match?.phase === "bidding" && (
-        <p className="action-error" role="alert">
-          {actionError}
-        </p>
-      )}
-    </section>
-  );
-}
-
 function GroundRevealPanel({ cards }: { cards: Card[] }) {
   return (
-    <section className="ground-reveal-panel" aria-label="Revealed zamin">
+    <section className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex w-[min(860px,calc(100%-2rem))] flex-col gap-2 rounded-xl border border-border/80 bg-card/95 p-4 shadow-2xl backdrop-blur-md" aria-label="Revealed zamin">
       <div>
-        <span>Private zamin</span>
-        <strong>Only you can see these cards</strong>
-        <p>They will enter your hand shortly.</p>
+        <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Private zamin</span>
+        <strong className="block text-sm font-semibold text-foreground">Only you can see these cards</strong>
+        <p className="text-xs text-muted-foreground">They will enter your hand shortly.</p>
       </div>
-      <div className="ground-reveal-cards">
+      <div className="flex flex-wrap gap-2 pt-1">
         {cards.map((card) => (
           <article
             aria-label={`${card.rank} of ${card.suit}`}
-            className="ground-card"
+            className="aspect-[5/7] w-14 overflow-hidden rounded-md border border-border shadow-md"
             key={card.id}
           >
-            <CardFace card={card} className="card-face" />
+            <CardFace card={card} className="h-full w-full object-cover" />
           </article>
         ))}
       </div>
-    </section>
-  );
-}
-
-function GroundPanel({
-  actionError,
-  onRemoveCard,
-  onSubmit,
-  selectedCards,
-}: {
-  actionError: string;
-  onRemoveCard: (cardId: string) => void;
-  onSubmit: () => void;
-  selectedCards: Card[];
-}) {
-  const selectedCount = selectedCards.length;
-  return (
-    <section className="ground-panel" aria-label="Ground discard">
-      <div>
-        <strong>Prepare the hand</strong>
-        <p>
-          Select four cards to discard. Your opening card will establish trump.
-        </p>
-      </div>
-      {selectedCards.length > 0 && (
-        <div className="selected-discards" aria-label="Selected discards">
-          {selectedCards.map((card) => (
-            <button
-              aria-label={`Remove ${card.rank} of ${card.suit} from discards`}
-              key={card.id}
-              onClick={() => onRemoveCard(card.id)}
-              type="button"
-            >
-              <CardFace card={card} className="card-face" />
-              <span aria-hidden="true">×</span>
-            </button>
-          ))}
-        </div>
-      )}
-      <button
-        className="primary ground-submit"
-        disabled={selectedCount !== 4}
-        onClick={onSubmit}
-        type="button"
-      >
-        Discard {selectedCount}/4 and continue
-      </button>
-      {actionError && (
-        <p className="action-error" role="alert">
-          {actionError}
-        </p>
-      )}
     </section>
   );
 }
@@ -1131,7 +785,7 @@ function TableTrick({
   );
 
   return (
-    <section className="table-trick" aria-label="Cards on the table">
+    <section className="absolute inset-4 pointer-events-none" aria-label="Cards on the table">
       {positionsClockwise.map((position) => {
         const player = room.players.find(
           (candidate) => candidate.position === position,
@@ -1140,28 +794,32 @@ function TableTrick({
           (candidate) => candidate.playerId === player?.id,
         );
         const displayPosition = positionFromViewer(position, viewerPosition);
+        const slotPositionStyle: Record<Position, string> = {
+          north: "top-0 left-1/2 -translate-x-1/2",
+          south: "bottom-0 left-1/2 -translate-x-1/2",
+          west: "top-1/2 left-2 -translate-y-1/2",
+          east: "top-1/2 right-2 -translate-y-1/2",
+        };
         return (
           <div
-            className={`table-card-slot slot-${displayPosition} ${
-              played ? "has-card" : ""
-            }`}
+            className={cn("absolute grid justify-items-center gap-1 text-center", slotPositionStyle[displayPosition])}
             key={position}
           >
             {played ? (
               <article
                 aria-label={`${played.card.rank} of ${played.card.suit}`}
-                className="table-played-card"
+                className="aspect-[5/7] w-14 overflow-hidden rounded-md border border-border shadow-md"
               >
-                <CardFace card={played.card} className="card-face" />
+                <CardFace card={played.card} className="h-full w-full object-cover" />
               </article>
             ) : (
-              <span className="card-waiting-dot" aria-hidden="true" />
+              <span className="size-1.5 rounded-full bg-border" aria-hidden="true" />
             )}
-            <small>{player?.name ?? position}</small>
+            <small className="max-w-[70px] truncate text-[9px] text-muted-foreground">{player?.name ?? position}</small>
           </div>
         );
       })}
-      <div className="table-team-tricks">
+      <div className="absolute right-2 bottom-1 left-2 flex justify-between text-[10px] font-semibold text-muted-foreground">
         <span>{teamLabel("one", viewerTeam)} {teamTricks.one}</span>
         <span>{teamLabel("two", viewerTeam)} {teamTricks.two}</span>
       </div>
@@ -1169,149 +827,14 @@ function TableTrick({
   );
 }
 
-function ResultPanel({
-  actionError,
-  onToggleReady,
-  room,
-}: {
-  actionError: string;
-  onToggleReady: () => void;
-  room: Room;
-}) {
-  const result = room.match?.result;
-  if (!result) return null;
-  const readyPlayerIds = room.match?.nextHandReadyPlayerIds ?? [];
-  const isReady = readyPlayerIds.includes(gameClient.playerId);
-  const viewerTeam = getViewerTeam(room);
-  const displayedTeams: Team[] = viewerTeam
-    ? [viewerTeam, otherTeam(viewerTeam)]
-    : ["one", "two"];
-
-  const outcome = result.shelem
-    ? `${teamLabel(result.biddingTeam, viewerTeam)} won Shelem`
-    : result.madeBid
-      ? `${teamLabel(result.biddingTeam, viewerTeam)} made the ${result.bid} bid`
-      : `${teamLabel(result.biddingTeam, viewerTeam)} missed the ${result.bid} bid`;
-
-  return (
-    <section className="result-panel" aria-label="Hand result">
-      <div className="result-heading">
-        <span>Hand {room.match?.handNumber} result</span>
-        <strong>{outcome}</strong>
-        {room.matchWinnerTeam && (
-          <small>
-            {teamLabel(room.matchWinnerTeam, viewerTeam)} wins the match
-          </small>
-        )}
-      </div>
-      {displayedTeams.map((team) => (
-        <article
-          className={`result-team ${
-            result.biddingTeam === team ? "is-bidding-team" : ""
-          }`}
-          key={team}
-        >
-          <div>
-            <span>{teamLabel(team, viewerTeam)}</span>
-            {result.biddingTeam === team && <small>Bidding team</small>}
-          </div>
-          <dl>
-            <div>
-              <dt>Hand</dt>
-              <dd>{result.rawPoints[team]}</dd>
-            </div>
-            <div>
-              <dt>Change</dt>
-              <dd>{formatScoreDelta(result.scoreDelta[team])}</dd>
-            </div>
-            <div>
-              <dt>Match</dt>
-              <dd>{result.matchScore[team]}</dd>
-            </div>
-          </dl>
-        </article>
-      ))}
-      {!room.matchWinnerTeam && (
-        <div className="next-hand-ready">
-          <span>{readyPlayerIds.length} of 4 ready for the next hand</span>
-          <button
-            className={`ready-button ${isReady ? "is-ready" : ""}`}
-            onClick={onToggleReady}
-            type="button"
-          >
-            {isReady ? "Ready for next hand ✓" : "Ready for next hand"}
-          </button>
-          {actionError && (
-            <p className="action-error" role="alert">
-              {actionError}
-            </p>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ForfeitPanel({ room }: { room: Room }) {
-  const forfeit = room.match?.forfeit;
-  if (!forfeit) return null;
-  const viewerTeam = getViewerTeam(room);
-
-  return (
-    <section className="forfeit-panel" aria-label="Match result">
-      <span>Match result</span>
-      <strong>
-        {teamLabel(forfeit.winningTeam, viewerTeam)} wins by forfeit
-      </strong>
-      <p>
-        {forfeit.losingPlayerName}{" "}
-        {forfeit.reason === "left"
-          ? "left the match."
-          : "did not reconnect before the grace period ended."}
-      </p>
-      <div>
-        Final score: {teamLabel("one", viewerTeam)} {room.score.one} ·{" "}
-        {teamLabel("two", viewerTeam)} {room.score.two}
-      </div>
-    </section>
-  );
-}
-
-function teamForPosition(position: Position): Team {
-  return position === "north" || position === "south" ? "one" : "two";
-}
-
-function otherTeam(team: Team): Team {
-  return team === "one" ? "two" : "one";
-}
-
-function getViewerTeam(room: Room): Team | undefined {
-  const viewer = room.players.find(
-    (player) => player.id === gameClient.playerId,
-  );
-  return viewer ? teamForPosition(viewer.position) : undefined;
-}
-
-function teamLabel(team: Team, viewerTeam?: Team) {
-  if (!viewerTeam) return team === "one" ? "Team one" : "Team two";
-  return team === viewerTeam ? "Your team" : "Opponents";
-}
-
-function teamPlayerNames(room: Room, team: Team) {
-  return room.players
-    .filter((player) => teamForPosition(player.position) === team)
-    .map((player) => player.name)
-    .join(" & ");
-}
-
 function MatchScoreboard({ room }: { room: Room }) {
   const viewerTeam = getViewerTeam(room) ?? "one";
   const opponentTeam = otherTeam(viewerTeam);
 
   return (
-    <section className="match-scoreboard" aria-label="Current match score">
+    <section className="absolute top-18 sm:top-4 left-1/2 -translate-x-1/2 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-3 min-h-11 w-[min(440px,calc(100%-2rem))] px-4 py-1.5 rounded-xl border border-border/70 bg-card/85 backdrop-blur-md shadow-md" aria-label="Current match score">
       <ScoreboardTeam room={room} team={viewerTeam} viewerTeam={viewerTeam} />
-      <small>First to 1,000</small>
+      <small className="text-[10px] font-medium text-muted-foreground tracking-wide">First to 1,000</small>
       <ScoreboardTeam
         room={room}
         team={opponentTeam}
@@ -1331,18 +854,16 @@ function ScoreboardTeam({
   viewerTeam: Team;
 }) {
   return (
-    <div className={`match-score-team team-${team}-score`}>
-      <div>
-        <span>{teamLabel(team, viewerTeam)}</span>
-        <small>{teamPlayerNames(room, team)}</small>
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <div className="min-w-0">
+        <span className="block truncate text-[11px] font-semibold text-muted-foreground">{teamLabel(team, viewerTeam)}</span>
+        <small className="block truncate text-[9px] text-muted-foreground/70">{teamPlayerNames(room, team)}</small>
       </div>
-      <strong>{room.score[team]}</strong>
+      <strong className={cn("font-heading text-xl font-semibold tabular-nums", team === "one" ? "text-primary" : "text-emerald-400")}>
+        {room.score[team]}
+      </strong>
     </div>
   );
-}
-
-function formatScoreDelta(score: number) {
-  return score > 0 ? `+${score}` : String(score);
 }
 
 function Hand({
@@ -1386,44 +907,34 @@ function Hand({
   );
 
   return (
-    <section className="hand-panel" aria-label="Your hand">
-      <div className="hand-heading">
+    <section className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex w-[min(920px,calc(100%-2rem))] flex-col items-center gap-2" aria-label="Your hand">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <strong>Your hand</strong>
+        <span>·</span>
         <span>{cards.length} cards</span>
       </div>
-      <div
-        className={`hand-cards ${cards.length > 12 ? "is-large-hand" : ""}`}
-      >
-        {sortedCards.map((card, index) => {
+      <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
+        {sortedCards.map((card) => {
           const selected = selectedIds.includes(card.id);
-          const distanceFromCenter = index - (sortedCards.length - 1) / 2;
-          const fanAngleStep = sortedCards.length > 12 ? 1.55 : 2.25;
-          const fanDropStep = sortedCards.length > 12 ? 1.45 : 2.1;
-          const fanStyle = {
-            "--fan-angle": `${distanceFromCenter * fanAngleStep}deg`,
-            "--fan-drop": `${Math.abs(distanceFromCenter) * fanDropStep}px`,
-            "--fan-compact-angle": `${distanceFromCenter * 0.7}deg`,
-            "--fan-compact-drop": `${Math.abs(distanceFromCenter) * 1.1}px`,
-            zIndex: selected ? sortedCards.length + 2 : index + 1,
-          } as CSSProperties;
           return (
-          <button
-            className={`playing-card is-${card.suit} ${
-              selected ? "is-selected" : ""
-            }`}
-            disabled={
-              !selectable ||
-              (enabledIds !== undefined && !enabledIds.includes(card.id))
-            }
-            key={card.id}
-            aria-label={`${card.rank} of ${card.suit}`}
-            aria-pressed={selected}
-            onClick={() => onToggle?.(card.id)}
-            style={fanStyle}
-            type="button"
-          >
-            <CardFace card={card} className="card-face" />
-          </button>
+            <button
+              className={cn(
+                "relative aspect-[5/7] w-12 sm:w-16 overflow-hidden rounded-md border border-border shadow-md transition-all",
+                selected && "-translate-y-2 ring-2 ring-primary border-primary",
+                !selectable && "opacity-90",
+              )}
+              disabled={
+                !selectable ||
+                (enabledIds !== undefined && !enabledIds.includes(card.id))
+              }
+              key={card.id}
+              aria-label={`${card.rank} of ${card.suit}`}
+              aria-pressed={selected}
+              onClick={() => onToggle?.(card.id)}
+              type="button"
+            >
+              <CardFace card={card} className="h-full w-full object-cover" />
+            </button>
           );
         })}
       </div>
@@ -1439,6 +950,92 @@ function suitLabel(suit: Card["suit"] | null) {
     spades: "Spades",
   };
   return suit ? labels[suit] : "No suit";
+}
+
+function getVirtualTableCopy(
+  room: Room,
+  viewerTeam: Team | undefined,
+  isGroundWinner: boolean,
+  roomCode: string,
+) {
+  const match = room.match;
+  if (!match) {
+    const remaining = 4 - room.players.length;
+    return {
+      status:
+        remaining === 0
+          ? "All players have joined"
+          : `Waiting for ${remaining} ${remaining === 1 ? "player" : "players"}`,
+      detail: `Invite friends using code ${roomCode}`,
+    };
+  }
+
+  if (match.phase === "match-complete") {
+    const winner =
+      match.forfeit?.winningTeam ?? room.matchWinnerTeam ?? "one";
+    return {
+      status: `${teamLabel(winner, viewerTeam)} wins`,
+      detail: match.forfeit
+        ? "The match ended by forfeit"
+        : "The match is complete",
+    };
+  }
+  if (match.phase === "hand-results") {
+    return {
+      status: `${teamLabel("one", viewerTeam)} ${
+        match.result?.rawPoints.one ?? 0
+      } · ${teamLabel("two", viewerTeam)} ${
+        match.result?.rawPoints.two ?? 0
+      }`,
+      detail: `Bid ${match.result?.bid ?? "—"} · ${suitLabel(
+        match.trump,
+      )} was trump`,
+    };
+  }
+  if (match.phase === "playing") {
+    const resolvingPlayer = room.players.find(
+      (player) => player.id === match.play?.resolvingTrickWinnerId,
+    );
+    return resolvingPlayer
+      ? {
+          status: `${resolvingPlayer.name} wins the trick`,
+          detail: "Reviewing all four cards",
+        }
+      : {
+          status: `Trick ${(match.play?.completedTrickCount ?? 0) + 1} of 12`,
+          detail: match.trump
+            ? `${suitLabel(match.trump)} is trump`
+            : "The opening card establishes trump",
+        };
+  }
+  if (match.phase === "ground-reveal") {
+    return {
+      status: isGroundWinner ? "Your zamin is revealed" : "The zamin is hidden",
+      detail: isGroundWinner
+        ? "These cards will enter your hand"
+        : "Waiting for the bidder",
+    };
+  }
+  if (match.phase === "ground") {
+    const bidder = room.players.find(
+      (player) => player.id === match.bidding.winnerId,
+    );
+    return {
+      status: `${bidder?.name ?? "The bidder"} won with ${
+        match.bidding.winningBid ?? "—"
+      }`,
+      detail: isGroundWinner
+        ? "Select four cards to discard"
+        : "Waiting for the bidder to discard",
+    };
+  }
+  return {
+    status:
+      match.bidding.currentBid === null
+        ? "Opening bid: 100 minimum"
+        : `Current bid: ${match.bidding.currentBid}`,
+    detail: `${match.groundCount} cards are face down in the zamin`,
+  };
 }
 
 function suitSymbol(suit: Card["suit"]) {
@@ -1462,9 +1059,7 @@ function getPlayableCardIds(room: Room | null) {
   const hand = room.match.yourHand;
   const currentTrick = room.match.play.currentTrick;
   if (currentTrick.length === 0) {
-    return room.match.play.completedTrickCount === 0
-      ? hand.map((card) => card.id)
-      : hand.map((card) => card.id);
+    return hand.map((card) => card.id);
   }
 
   const leadSuit = currentTrick[0].card.suit;
@@ -1515,16 +1110,25 @@ function TurnBanner({ room, turn }: { room: Room; turn: TurnContext }) {
   return (
     <section
       aria-live="polite"
-      className={`turn-banner ${isYou ? "is-your-turn" : ""}`}
+      className={cn(
+        "absolute top-28 sm:top-20 left-4 sm:left-6 z-30 flex min-h-12 w-[min(300px,calc(100%-2rem))] items-center gap-3 rounded-xl border bg-card/85 p-3 shadow-md backdrop-blur-md transition-colors",
+        isYou ? "border-primary/50 bg-primary/10" : "border-border/70",
+      )}
     >
-      <span className="turn-pulse" aria-hidden="true" />
-      <div>
-        <small>{isYou ? "Your turn" : "Current turn"}</small>
-        <strong>
+      <span
+        className={cn(
+          "size-2.5 shrink-0 rounded-full",
+          isYou ? "bg-primary shadow-[0_0_8px_rgba(229,197,122,0.8)]" : "bg-emerald-400",
+        )}
+        aria-hidden="true"
+      />
+      <div className="grid gap-0.5">
+        <small className="text-[10px] font-semibold text-muted-foreground">{isYou ? "Your turn" : "Current turn"}</small>
+        <strong className="font-heading text-xs font-semibold text-foreground">
           {isYou ? `Your turn, ${player.name}` : `${player.name}'s turn`}
         </strong>
       </div>
-      <p>{turn.action}</p>
+      <p className="ml-auto text-[11px] text-muted-foreground">{turn.action}</p>
     </section>
   );
 }
@@ -1562,28 +1166,48 @@ function Seat({
       ? `${player.name} won the bid. ${suitLabel(trump)} is trump.`
       : `${player.name} won the bid${bidAmount ? ` with ${bidAmount}` : ""}.`
     : "";
+
+  const seatPositionStyles: Record<Position, string> = {
+    north: "top-0 left-1/2 -translate-x-1/2",
+    south: "bottom-0 left-1/2 -translate-x-1/2",
+    west: "top-1/2 left-3 -translate-y-1/2",
+    east: "top-1/2 right-3 -translate-y-1/2",
+  };
+
   return (
     <div
-      className={`seat seat-${displayPosition} ${turn ? "is-active-turn" : ""} ${
-        turn && isYou ? "is-your-turn" : ""
-      } ${bidWinner ? "is-bid-winner" : ""}`}
+      className={cn(
+        "absolute grid min-w-28 justify-items-center text-center z-20",
+        seatPositionStyles[displayPosition],
+      )}
     >
       {player || !onSelect ? (
-        <div className={`avatar team-${team}`}>
+        <div
+          className={cn(
+            "relative mb-1.5 grid size-14 place-items-center rounded-full border border-border bg-card font-heading text-lg font-bold text-foreground shadow-md",
+            team === "two" ? "border-emerald-500/40 text-emerald-400" : "border-primary/40 text-primary",
+            bidWinner && "ring-2 ring-primary",
+          )}
+        >
           {player ? player.name.slice(0, 1).toUpperCase() : <UsersIcon />}
           {player && (
             <span
-              className="seat-camera-root"
+              className="absolute inset-0.5 block overflow-hidden rounded-full"
               id={`seat-camera-${player.id}`}
             />
           )}
-          {readiness?.ready && <span className="ready-check">✓</span>}
+          {readiness?.ready && (
+            <span className="absolute right-0 bottom-0 z-20 grid size-4.5 place-items-center rounded-full border border-background bg-emerald-500 text-[10px] font-bold text-emerald-950">
+              ✓
+            </span>
+          )}
           {player && bidWinner && (
             <span
               aria-label={bidWinnerDescription}
-              className={`bid-winner-marker ${
-                trump ? `is-${trump}` : ""
-              }`}
+              className={cn(
+                "absolute -top-2 -right-3 z-30 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold text-primary-foreground shadow-sm",
+                (trump === "diamonds" || trump === "hearts") && "text-destructive",
+              )}
               role="status"
             >
               <span aria-hidden="true">{trump ? suitSymbol(trump) : "♛"}</span>
@@ -1597,10 +1221,9 @@ function Seat({
               aria-label={`${player.name} has won ${trickWins} ${
                 trickWins === 1 ? "trick" : "tricks"
               }`}
-              className="seat-trick-wins"
+              className="absolute top-1/2 -left-3 grid size-5 -translate-y-1/2 place-items-center rounded-full border border-background bg-primary text-[9px] font-bold text-primary-foreground shadow-sm"
               role="status"
             >
-              <CardBack className="seat-trick-card" />
               <span aria-hidden="true">{trickWins}</span>
             </span>
           )}
@@ -1608,29 +1231,30 @@ function Seat({
       ) : (
         <button
           aria-label={`Move to the ${displayPosition} seat`}
-          className={`avatar team-${team} is-selectable`}
+          className="relative mb-1.5 grid size-14 place-items-center rounded-full border border-dashed border-border bg-card/40 font-heading text-lg font-bold text-muted-foreground shadow-sm transition-transform hover:scale-105 hover:border-primary hover:text-primary active:scale-95"
           onClick={() => onSelect(position)}
           type="button"
         >
           <UsersIcon />
         </button>
       )}
-      <strong>{player?.name || "Open seat"}</strong>
+      <strong className="max-w-[110px] truncate text-xs font-semibold text-foreground">{player?.name || "Open seat"}</strong>
       {biddingStatus && (
         <span
-          className={`seat-bid-status ${
-            biddingStatus.passed ? "has-passed" : ""
-          }`}
+          className={cn(
+            "mt-0.5 rounded-full px-2 py-0.5 text-[9px] font-semibold text-foreground bg-muted",
+            biddingStatus.passed && "opacity-60",
+          )}
         >
           {biddingStatus.label}
         </span>
       )}
       {turn && (
-        <span className="seat-turn-label">
+        <span className="mt-0.5 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold text-primary-foreground shadow-xs">
           {isYou ? "Your turn" : turn.seatLabel}
         </span>
       )}
-      <small>
+      <small className="mt-0.5 text-[10px] text-muted-foreground">
         {turn
           ? turn.action
           : player
@@ -1690,47 +1314,4 @@ function getPlayerBiddingStatus(
     label: latestBid ? `Bid ${latestBid.amount}` : "No bid yet",
     passed: false,
   };
-}
-
-function ArrowIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 12h14m-6-6 6 6-6 6" />
-    </svg>
-  );
-}
-
-function CopyIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="8" y="8" width="11" height="11" rx="2" />
-      <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
-    </svg>
-  );
-}
-
-function VideoIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3" y="6" width="13" height="12" rx="2" />
-      <path d="m16 10 5-3v10l-5-3" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="5" y="10" width="14" height="11" rx="2" />
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-    </svg>
-  );
-}
-
-function UsersIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
 }

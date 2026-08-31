@@ -12,11 +12,13 @@ and LiveKit together:
 npm run dev:all
 ```
 
-The first run downloads the official LiveKit Windows release and verifies its
-SHA-256 checksum. The launcher automatically advertises the active LAN address
-for WebRTC media. It also exposes the Compose PostgreSQL service on host port
-5433. Keep this terminal open while testing. Vite refreshes the web app, and
-Node restarts the game server when its source changes.
+The command runs `npm ci` when `package-lock.json` changes. The first run
+downloads the official LiveKit Windows release and verifies its SHA-256
+checksum. The launcher uses fixed local media credentials, starts PostgreSQL,
+and waits for LiveKit and the game server before it starts Vite. It also exposes
+the Compose PostgreSQL service on host port 5433. Keep this terminal open while
+testing. Vite refreshes the web app, and Node restarts the game server when its
+source changes.
 
 Alternatively, start the development containers:
 
@@ -27,7 +29,8 @@ docker compose up --build
 Open `http://localhost:5173`.
 
 Source files are mounted into the container, so changes refresh in the browser
-without rebuilding the image.
+without rebuilding the image. The web container runs `npm ci` when it starts so
+the persistent `node_modules` volume stays synchronized with the lockfile.
 
 When using Docker Desktop, set `LIVEKIT_NODE_IP` in `.env` to the computer's
 LAN address (for example, the Wi-Fi IPv4 address) so browsers can reach the

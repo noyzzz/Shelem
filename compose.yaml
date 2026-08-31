@@ -13,6 +13,10 @@ services:
     environment:
       NODE_ENV: development
       GAME_SERVER_URL: http://game-server:3001
+    command:
+      - sh
+      - -c
+      - npm ci && npm run dev -- --host 0.0.0.0
     depends_on:
       game-server:
         condition: service_healthy
