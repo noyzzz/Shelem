@@ -21,6 +21,7 @@ import { SUIT_SYMBOL } from "./tableConfig";
 
 export function buildTableEnvironment(scene: Scene, seatRoot: Group) {
   const chairMaterials = new Map<RelativePosition, MeshStandardMaterial>();
+  const chairs = new Map<RelativePosition, Mesh>();
   const floorMaterial = new MeshStandardMaterial({
     color: 0x071610,
     metalness: 0,
@@ -107,6 +108,7 @@ export function buildTableEnvironment(scene: Scene, seatRoot: Group) {
     chair.castShadow = true;
     chair.receiveShadow = true;
     chairMaterials.set(position, material);
+    chairs.set(position, chair);
     seatRoot.add(chair);
   });
 
@@ -124,7 +126,7 @@ export function buildTableEnvironment(scene: Scene, seatRoot: Group) {
   key.shadow.camera.bottom = -10;
   key.shadow.bias = -0.0005;
   scene.add(hemisphere, ambient, key);
-  return chairMaterials;
+  return { chairMaterials, chairs };
 }
 export class CardTextureFactory {
   private readonly cache = new Map<string, CanvasTexture>();

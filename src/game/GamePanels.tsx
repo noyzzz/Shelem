@@ -36,7 +36,6 @@ export function BiddingPanel({ actionError, bidAmount, onBid, onPass, room, setB
 
   const highBidder = room.players.find((player) => player.id === bidding.highBidderId);
   const currentPlayer = room.players.find((player) => player.id === bidding.currentTurnPlayerId);
-  const winner = room.players.find((player) => player.id === bidding.winnerId);
   const isYourTurn = room.match?.phase === "bidding" && bidding.currentTurnPlayerId === gameClient.playerId;
   const isOpeningBid = bidding.currentBid === null;
   const minimumBid = bidding.currentBid === null ? 100 : bidding.currentBid + 5;
@@ -45,77 +44,81 @@ export function BiddingPanel({ actionError, bidAmount, onBid, onPass, room, setB
     (_, index) => minimumBid + index * 5,
   );
   const bidItems = bidOptions.map((amount) => ({ label: String(amount), value: String(amount) }));
-  const description = room.match?.phase !== "bidding"
-    ? `${winner?.name ?? "The bidder"} won the auction.`
-    : isOpeningBid
-      ? isYourTurn
-        ? "Choose any opening bid from 100 to 165."
-        : `Waiting for ${currentPlayer?.name ?? "the first bidder"} to open.`
-      : `${highBidder?.name ?? "The bidder"} leads. ${
-          isYourTurn ? "It’s your turn." : `Waiting for ${currentPlayer?.name ?? "the next player"}.`
-        }`;
+  const auctionStatus = isOpeningBid
+    ? isYourTurn
+      ? "Set the opening bid"
+      : `${currentPlayer?.name ?? "The first bidder"} is choosing`
+    : `${highBidder?.name ?? "The bidder"} leads`;
 
   return (
-    <Card className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[min(860px,calc(100%-2rem))] z-40 bg-[#081f18]/95 backdrop-blur-md border-primary/35 shadow-[0_16px_48px_rgba(0,0,0,0.7),0_0_24px_rgba(229,197,122,0.12)] rounded-xl animate-in fade-in-0 slide-in-from-bottom-2" size="sm">
-      <CardHeader>
-        <CardDescription className="text-xs font-semibold text-primary/80 uppercase tracking-wider">{isOpeningBid ? "Opening auction" : "Current highest bid"}</CardDescription>
-        <CardTitle className="font-heading text-2xl font-bold text-foreground">{isOpeningBid ? "100 minimum" : `${bidding.currentBid} pts`}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm font-medium text-muted-foreground">{description}</p>
-        {actionError && room.match?.phase === "bidding" && (
-          <Alert className="mt-2.5" variant="destructive">
-            <AlertDescription>{actionError}</AlertDescription>
-          </Alert>
-        )}
-      </CardContent>
-      {isYourTurn && (
-        <CardFooter className="flex flex-wrap items-end gap-3 pt-1">
-          {bidOptions.length > 0 && (
-            <>
-              <Field className="w-36">
-                <FieldLabel className="text-xs font-semibold text-foreground/80">Your bid</FieldLabel>
-                <Select
-                  items={bidItems}
-                  onValueChange={(value) => {
-                    if (value) setBidAmount(Number(value));
-                  }}
-                  value={String(bidAmount)}
+    <Card className="absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-1rem)] sm:w-[min(720px,calc(100%-2rem))] z-40 gap-0 py-0 bg-[#081f18]/94 backdrop-blur-md border-white/12 shadow-[0_12px_36px_rgba(0,0,0,0.58),0_0_18px_rgba(229,197,122,0.08)] rounded-xl animate-in fade-in-0 slide-in-from-bottom-2" size="sm">
+      <div className="flex flex-wrap items-center gap-3 px-3 py-2.5 sm:flex-nowrap sm:gap-5 sm:px-4">
+        <div className="min-w-0 flex-1">
+          <span className="block text-[9px] font-bold uppercase tracking-wider text-primary/75">
+            {isOpeningBid ? "Opening bid" : "Current bid"}
+          </span>
+          <div className="mt-0.5 flex items-baseline gap-2">
+            <strong className="font-heading text-lg font-bold leading-none tabular-nums text-foreground">
+              {isOpeningBid ? "100" : bidding.currentBid}
+            </strong>
+            <small className="truncate text-[11px] font-medium text-muted-foreground">
+              {auctionStatus}
+            </small>
+          </div>
+        </div>
+        {isYourTurn && (
+          <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+            {bidOptions.length > 0 && (
+              <>
+                <Field className="min-w-20 flex-1 sm:w-32 sm:flex-none">
+                  <FieldLabel className="sr-only">Your bid</FieldLabel>
+                  <Select
+                    items={bidItems}
+                    onValueChange={(value) => {
+                      if (value) setBidAmount(Number(value));
+                    }}
+                    value={String(bidAmount)}
+                  >
+                    <SelectTrigger className="h-9 w-full rounded-lg border-white/12 bg-black/20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-lg border-white/15 bg-[#081f18]/95 shadow-2xl">
+                      <SelectGroup>
+                        {bidItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label} pts
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Button
+                  onClick={onBid}
+                  type="button"
+                  className="h-9 shrink-0 rounded-lg px-3 sm:px-4 font-bold bg-gradient-to-r from-[#f3dfa7] via-primary to-[#d8b35e] text-primary-foreground shadow-[0_2px_12px_rgba(229,197,122,0.2)] hover:brightness-105"
                 >
-                  <SelectTrigger className="rounded-lg border-white/15 bg-black/25">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-lg border-white/15 bg-[#081f18]/95 shadow-2xl">
-                    <SelectGroup>
-                      {bidItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label} pts
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
+                  Place bid
+                </Button>
+              </>
+            )}
+            {!isOpeningBid && (
               <Button
-                onClick={onBid}
+                onClick={onPass}
                 type="button"
-                className="rounded-lg font-bold bg-gradient-to-r from-[#f3dfa7] via-primary to-[#d8b35e] text-primary-foreground shadow-[0_2px_14px_rgba(229,197,122,0.25)] hover:brightness-105"
+                variant="outline"
+                className="h-9 shrink-0 rounded-lg border-white/12 bg-black/15 px-3 text-foreground/85 font-semibold hover:bg-white/10"
               >
-                Place bid
+                Pass
               </Button>
-            </>
-          )}
-          {!isOpeningBid && (
-            <Button
-              onClick={onPass}
-              type="button"
-              variant="outline"
-              className="rounded-lg border-white/15 bg-black/20 text-foreground/90 font-semibold hover:bg-white/10"
-            >
-              Pass
-            </Button>
-          )}
-        </CardFooter>
+            )}
+          </div>
+        )}
+      </div>
+      {actionError && room.match?.phase === "bidding" && (
+        <Alert className="mx-3 mb-2.5" variant="destructive">
+          <AlertDescription>{actionError}</AlertDescription>
+        </Alert>
       )}
     </Card>
   );
@@ -128,14 +131,14 @@ export function GroundPanel({ actionError, onRemoveCard, onSubmit, selectedCards
   selectedCards: GameCard[];
 }) {
   return (
-    <Card className="absolute top-20 right-4 max-h-[calc(100dvh-6rem)] w-[min(360px,calc(100%-2rem))] overflow-y-auto z-40 bg-[#081f18]/95 backdrop-blur-md border-primary/35 shadow-[0_16px_48px_rgba(0,0,0,0.7)] rounded-xl animate-in fade-in-0 slide-in-from-right-2">
-      <CardHeader>
+    <Card className="absolute bottom-2 left-2 right-2 sm:bottom-auto sm:left-auto sm:right-4 sm:top-20 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-6rem)] sm:w-[min(360px,calc(100%-2rem))] overflow-y-auto z-40 bg-[#081f18]/95 backdrop-blur-md border-primary/35 shadow-[0_16px_48px_rgba(0,0,0,0.7)] rounded-xl animate-in fade-in-0 slide-in-from-right-2">
+      <CardHeader className="hidden sm:grid">
         <CardTitle className="font-heading text-lg font-bold text-foreground">Prepare the hand</CardTitle>
         <CardDescription className="text-xs text-muted-foreground">Select four cards to discard. Your opening lead establishes trump.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className={cn("sm:block", actionError ? "block" : "hidden")}>
         {selectedCards.length > 0 && (
-          <div className="flex flex-wrap gap-2.5 py-2" aria-label="Selected discards">
+          <div className="hidden flex-wrap gap-2.5 py-2 sm:flex" aria-label="Selected discards">
             {selectedCards.map((card) => (
               <button
                 aria-label={`Remove ${card.rank} of ${card.suit} from discards`}

@@ -609,14 +609,6 @@ export function App() {
             }
           />
         )}
-        {room?.match?.phase === "playing" &&
-          room.match.play?.currentTurnPlayerId === gameClient.playerId && (
-            <p className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 rounded-full border border-primary/40 bg-[#081f18]/90 px-4 py-1.5 text-xs font-medium text-foreground/90 shadow-[0_4px_16px_rgba(0,0,0,0.5),0_0_12px_rgba(229,197,122,0.15)] backdrop-blur-md text-center">
-              {selectedPlayCardId
-                ? "Tap the selected card again to play it."
-                : "Tap a card once to preview it."}
-            </p>
-          )}
         {room?.match?.phase === "playing" && actionError && (
           <Alert className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 max-w-md shadow-lg" variant="destructive">
             <AlertDescription>{actionError}</AlertDescription>
@@ -652,50 +644,52 @@ export function App() {
           <ForfeitPanel room={room} />
         )}
 
-        <div className="absolute bottom-3.5 left-3.5 z-30 flex items-center gap-2.5 rounded-xl border border-white/10 bg-[#081f18]/90 px-3.5 py-2 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.4)]">
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                "size-2 rounded-full",
-                connectionStatus === "connected"
-                  ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]"
-                  : "bg-destructive animate-pulse",
-              )}
-            />
-            <span className="text-xs font-medium text-foreground/80">
-              {connectionStatus === "connected"
-                ? "Connected"
-                : "Reconnecting…"}
-            </span>
-          </div>
-          {!room?.match && (
-            <div className="flex items-center gap-2 border-l border-white/10 pl-3">
-              {room?.hostPlayerId === gameClient.playerId && (
+        {(!room?.match || connectionStatus !== "connected") && (
+          <div className="absolute bottom-3.5 left-3.5 z-30 flex items-center gap-2.5 rounded-xl border border-white/10 bg-[#081f18]/90 px-3.5 py-2 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.4)]">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "size-2 rounded-full",
+                  connectionStatus === "connected"
+                    ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]"
+                    : "bg-destructive animate-pulse",
+                )}
+              />
+              <span className="text-xs font-medium text-foreground/80">
+                {connectionStatus === "connected"
+                  ? "Connected"
+                  : "Reconnecting…"}
+              </span>
+            </div>
+            {!room?.match && (
+              <div className="flex items-center gap-2 border-l border-white/10 pl-3">
+                {room?.hostPlayerId === gameClient.playerId && (
+                  <Button
+                    onClick={toggleBots}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                    className="rounded-lg border-white/15 bg-card/80 text-xs font-semibold hover:border-primary/40"
+                  >
+                    {hasBots ? "Remove bots" : "Fill bots"}
+                  </Button>
+                )}
                 <Button
-                  onClick={toggleBots}
+                  onClick={toggleReady}
                   size="sm"
                   type="button"
-                  variant="outline"
-                  className="rounded-lg border-white/15 bg-card/80 text-xs font-semibold hover:border-primary/40"
+                  variant={ready ? "secondary" : "default"}
+                  className={cn(
+                    "rounded-lg text-xs font-bold transition-all",
+                    !ready && "bg-gradient-to-r from-primary via-[#edd493] to-primary text-primary-foreground shadow-[0_2px_12px_rgba(229,197,122,0.3)]",
+                  )}
                 >
-                  {hasBots ? "Remove bots" : "Fill bots"}
+                  {ready ? "Ready ✓" : "I’m ready"}
                 </Button>
-              )}
-              <Button
-                onClick={toggleReady}
-                size="sm"
-                type="button"
-                variant={ready ? "secondary" : "default"}
-                className={cn(
-                  "rounded-lg text-xs font-bold transition-all",
-                  !ready && "bg-gradient-to-r from-primary via-[#edd493] to-primary text-primary-foreground shadow-[0_2px_12px_rgba(229,197,122,0.3)]",
-                )}
-              >
-                {ready ? "Ready ✓" : "I’m ready"}
-              </Button>
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
+        )}
       </GameRoomScreen>
     );
   }
@@ -846,6 +840,10 @@ function TableTrick({
 function MatchScoreboard({ room }: { room: Room }) {
   const viewerTeam = getViewerTeam(room) ?? "one";
   const opponentTeam = otherTeam(viewerTeam);
+  const bidder = room.players.find(
+    (player) => player.id === room.match?.bidding.winnerId,
+  );
+  const trump = room.match?.trump;
 
   return (
     <section
@@ -853,9 +851,36 @@ function MatchScoreboard({ room }: { room: Room }) {
       className="absolute top-18 sm:top-4 left-1/2 -translate-x-1/2 z-30 flex items-center justify-between gap-2.5 sm:gap-4 min-h-12 w-[min(460px,calc(100%-2rem))] px-4 py-2 rounded-2xl border border-white/12 bg-[#081f18]/90 shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_16px_rgba(229,197,122,0.1)] backdrop-blur-md"
     >
       <ScoreboardTeam isViewer room={room} team={viewerTeam} viewerTeam={viewerTeam} />
-      <div className="flex flex-col items-center justify-center shrink-0 px-2 py-0.5 border-x border-white/10">
-        <span className="font-heading text-[10px] font-bold uppercase tracking-wider text-primary/80">Target</span>
-        <strong className="text-xs font-semibold tabular-nums text-foreground/90">1,000</strong>
+      <div
+        aria-label={
+          bidder
+            ? trump
+              ? `${suitLabel(trump)} is trump. ${bidder.name} won the bid.`
+              : `${bidder.name} won the bid.`
+            : "Target score 1,000"
+        }
+        className="flex min-w-16 shrink-0 flex-col items-center justify-center border-x border-white/10 px-2 py-0.5"
+      >
+        <span className="font-heading text-[9px] font-bold uppercase tracking-wider text-primary/75">
+          {bidder ? (trump ? "Trump" : "Bid won") : "Target"}
+        </span>
+        {bidder ? (
+          <div className="flex items-center gap-1.5">
+            <strong
+              className={cn(
+                "font-serif text-base font-semibold leading-none text-primary",
+                trump && (trump === "diamonds" || trump === "hearts") && "text-destructive",
+              )}
+            >
+              {trump ? suitSymbol(trump) : room.match?.bidding.winningBid}
+            </strong>
+            <small className="max-w-14 truncate text-[8px] font-medium text-muted-foreground">
+              {bidder.name}
+            </small>
+          </div>
+        ) : (
+          <strong className="text-xs font-semibold tabular-nums text-foreground/90">1,000</strong>
+        )}
       </div>
       <ScoreboardTeam isViewer={false} room={room} team={opponentTeam} viewerTeam={viewerTeam} />
     </section>
@@ -877,14 +902,7 @@ function ScoreboardTeam({
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-2.5", !isViewer && "flex-row-reverse")}>
       <div className={cn("min-w-0 flex-1", !isViewer && "text-right")}>
-        <div className={cn("flex items-center gap-1.5", isViewer ? "justify-start" : "justify-end")}>
-          <span
-            className={cn(
-              "size-1.5 rounded-full shrink-0",
-              isTeamOne ? "bg-primary shadow-[0_0_6px_rgba(229,197,122,0.8)]" : "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]",
-            )}
-            aria-hidden="true"
-          />
+        <div className={cn("flex items-center", isViewer ? "justify-start" : "justify-end")}>
           <span className="truncate text-[11px] font-bold tracking-wide text-foreground/90">
             {teamLabel(team, viewerTeam)}
           </span>
@@ -1186,8 +1204,8 @@ function Seat({
       {player || !onSelect ? (
         <div
           className={cn(
-            "relative mb-1.5 grid size-14 place-items-center rounded-full border border-border bg-card font-heading text-lg font-bold text-foreground shadow-md",
-            team === "two" ? "border-emerald-500/40 text-emerald-400" : "border-primary/40 text-primary",
+            "relative mb-1.5 grid size-14 place-items-center rounded-full bg-card font-heading text-lg font-bold text-foreground shadow-md",
+            team === "two" ? "text-emerald-400" : "text-primary",
             bidWinner && "ring-2 ring-primary",
             turn && "ring-3 ring-primary/80 shadow-[0_0_26px_rgba(229,197,122,0.6)]",
           )}
@@ -1197,7 +1215,7 @@ function Seat({
           {player ? player.name.slice(0, 1).toUpperCase() : <UsersIcon />}
           {player && (
             <span
-              className="absolute inset-0.5 block overflow-hidden rounded-full"
+              className="absolute inset-0 block overflow-hidden rounded-full"
               id={`seat-camera-${player.id}`}
             />
           )}

@@ -210,6 +210,7 @@ export class TableSceneEngine {
   private readonly cards = new Map<string, SceneCard>();
   private readonly retiredCards = new Set<SceneCard>();
   private readonly chairMaterials: Map<RelativePosition, MeshStandardMaterial>;
+  private readonly chairs: Map<RelativePosition, Mesh>;
   private readonly textureFactory: CardTextureFactory;
   private readonly raycaster = new Raycaster();
   private readonly pointer = new Vector2();
@@ -269,7 +270,9 @@ export class TableSceneEngine {
     this.controls.update();
 
     this.textureFactory = new CardTextureFactory(this.renderer);
-    this.chairMaterials = buildTableEnvironment(this.scene, this.seatRoot);
+    const tableEnvironment = buildTableEnvironment(this.scene, this.seatRoot);
+    this.chairMaterials = tableEnvironment.chairMaterials;
+    this.chairs = tableEnvironment.chairs;
     this.scene.add(this.cardRoot, this.seatRoot);
 
     canvas.addEventListener("pointerdown", (event) => {
@@ -383,6 +386,9 @@ export class TableSceneEngine {
   }
 
   private updateSeats() {
+    this.chairs.forEach((chair, position) => {
+      chair.visible = position !== "south" || this.model?.phase === "lobby";
+    });
     this.chairMaterials.forEach((material, position) => {
       const seat = this.model?.seats.find(
         (candidate) => candidate.displayPosition === position,

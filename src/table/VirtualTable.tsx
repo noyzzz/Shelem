@@ -16,6 +16,7 @@ import type {
   TableViewModel,
 } from "./tableTypes";
 import { cn } from "@/lib/utils";
+import { CardFace } from "../ui/PlayingCard";
 
 type VirtualTableProps = {
   detail: string;
@@ -55,6 +56,9 @@ export function VirtualTable({
   const [reducedMotion, setReducedMotion] = useState(() =>
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
   );
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    window.matchMedia?.("(max-width: 639px)").matches ?? false,
+  );
   const model = useMemo(
     () =>
       buildTableViewModel({
@@ -66,6 +70,10 @@ export function VirtualTable({
       }),
     [enabledIds, room, selectable, selectedIds, viewerPosition],
   );
+  const sceneModel = useMemo(
+    () => isMobileViewport ? { ...model, hand: [] } : model,
+    [isMobileViewport, model],
+  );
 
   cardActionRef.current = onCardAction;
   rendererUnavailableRef.current = onRendererUnavailable;
@@ -74,6 +82,14 @@ export function VirtualTable({
     const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     if (!media) return;
     const update = () => setReducedMotion(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(max-width: 639px)");
+    if (!media) return;
+    const update = () => setIsMobileViewport(media.matches);
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
@@ -97,7 +113,7 @@ export function VirtualTable({
       const initialBounds = host.getBoundingClientRect();
       scene.resize(initialBounds.width, initialBounds.height);
       scene.resetCamera();
-      scene.update({ model, reducedMotion });
+      scene.update({ model: sceneModel, reducedMotion });
     } catch {
       rendererUnavailableRef.current();
       return;
@@ -118,8 +134,8 @@ export function VirtualTable({
   }, []);
 
   useEffect(() => {
-    sceneRef.current?.update({ model, reducedMotion });
-  }, [model, reducedMotion]);
+    sceneRef.current?.update({ model: sceneModel, reducedMotion });
+  }, [sceneModel, reducedMotion]);
 
   useEffect(() => {
     sceneRef.current?.setInteractionEnabled(!interactionBlocked);
@@ -137,6 +153,7 @@ export function VirtualTable({
           ref={canvasRef}
         />
         <SeatVideoLayer
+          hideSouthSeat={isMobileViewport && model.hand.length > 0}
           model={model}
           onSeatElement={(position, element) => {
             if (element) seatElements.current[position] = element;
@@ -144,28 +161,13 @@ export function VirtualTable({
           }}
           onSeatSelect={room.match ? undefined : onSeatSelect}
         />
-        <div
-          className={cn(
-            "absolute top-[48%] left-1/2 z-20 grid max-w-xs -translate-x-1/2 -translate-y-1/2 justify-items-center gap-0.5 rounded-full border border-white/12 bg-[#061912]/85 px-4 py-1.5 text-center shadow-[0_4px_24px_rgba(0,0,0,0.65),0_0_12px_rgba(229,197,122,0.1)] backdrop-blur-md pointer-events-none",
-            model.trick.length > 0 && "top-[52%]",
-          )}
-        >
-          <strong className="font-heading text-xs sm:text-sm font-semibold tracking-wide text-foreground/95">{status}</strong>
-          <small className="text-[10px] sm:text-xs font-medium text-primary/85">{detail}</small>
-        </div>
-        {model.trump && (
-          <div
-            className={cn(
-              "absolute top-18 right-4 sm:top-5 sm:right-6 z-30 flex items-center gap-2 rounded-xl border border-primary/50 bg-[#091f18]/90 px-3.5 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.6),0_0_16px_rgba(229,197,122,0.18)] backdrop-blur-md pointer-events-none",
-              (model.trump === "diamonds" || model.trump === "hearts") && "text-destructive",
-            )}
-          >
-            <span className="font-serif text-2xl sm:text-3xl leading-none">{suitSymbol(model.trump)}</span>
-            <div className="flex flex-col">
-              <span className="text-[9px] font-bold tracking-widest text-primary uppercase">Trump</span>
-              <span className="text-[11px] font-semibold text-foreground/90 capitalize">{model.trump}</span>
-            </div>
-          </div>
+        {isMobileViewport && model.hand.length > 0 && (
+          <MobileHand
+            cards={model.hand}
+            interactionBlocked={interactionBlocked}
+            onCardAction={onCardAction}
+            phase={model.phase}
+          />
         )}
         <ButtonGroup className="absolute right-3.5 bottom-3.5 z-30 shadow-[0_4px_16px_rgba(0,0,0,0.4)] backdrop-blur-md rounded-lg border border-white/10 bg-[#081b15]/90 p-0.5" aria-label="Table camera controls">
           <Button
@@ -213,10 +215,12 @@ export function VirtualTable({
 }
 
 function SeatVideoLayer({
+  hideSouthSeat,
   model,
   onSeatElement,
   onSeatSelect,
 }: {
+  hideSouthSeat: boolean;
   model: TableViewModel;
   onSeatElement: (
     position: RelativePosition,
@@ -227,6 +231,7 @@ function SeatVideoLayer({
   return (
     <div className="absolute inset-0 z-10 pointer-events-none">
       {model.seats.map((seat) => {
+        if (hideSouthSeat && seat.displayPosition === "south") return null;
         const player = seat.player;
         const style = { "--seat-size": "76px" } as CSSProperties;
         const frame = player ? (
@@ -234,10 +239,10 @@ function SeatVideoLayer({
             aria-current={seat.turnLabel ? "true" : undefined}
             aria-label={`${player.name}, ${seat.displayPosition} seat${seat.turnLabel ? `, ${seat.turnLabel}` : ""}`}
             className={cn(
-              "relative grid size-[var(--seat-size)] place-items-center rounded-full border-2 bg-gradient-to-br from-[#0a231b] to-[#04100c] font-heading font-bold shadow-[0_8px_24px_rgba(0,0,0,0.6)] pointer-events-auto transition-all",
+              "relative grid size-[var(--seat-size)] place-items-center rounded-full bg-gradient-to-br from-[#0a231b] to-[#04100c] font-heading font-bold shadow-[0_8px_24px_rgba(0,0,0,0.6)] pointer-events-auto transition-all",
               seat.team === "two"
-                ? "border-emerald-400/60 text-emerald-300"
-                : "border-primary/70 text-primary",
+                ? "text-emerald-300"
+                : "text-primary",
               seat.turnLabel && "ring-3 ring-primary/80 shadow-[0_0_24px_rgba(229,197,122,0.55)]",
             )}
           >
@@ -245,7 +250,7 @@ function SeatVideoLayer({
               {player.name.slice(0, 1).toUpperCase()}
             </span>
             <span
-              className="absolute inset-0.5 block overflow-hidden rounded-full"
+              className="absolute inset-0 block overflow-hidden rounded-full"
               id={`seat-camera-${player.id}`}
             />
             {seat.ready && (
@@ -290,18 +295,18 @@ function SeatVideoLayer({
             <strong className="mt-1.5 max-w-[120px] truncate font-heading text-xs font-bold text-[#f3f0e8] drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
               {player?.name ?? "Open seat"}
             </strong>
-            <small className="text-[10px] font-medium text-muted-foreground/90">
-              {player
-                ? !player.connected
-                  ? "Reconnecting…"
-                  : player.isBot
-                    ? "Bot"
+            {(!player || !player.connected || model.phase === "lobby") && (
+              <small className="text-[10px] font-medium text-muted-foreground/90">
+                {player
+                  ? !player.connected
+                    ? "Reconnecting…"
                     : seat.ready
                       ? "Ready"
                       : "At table"
-                : "Available"}
-            </small>
-            {seat.bidWinner && (
+                  : "Available"}
+              </small>
+            )}
+            {seat.bidWinner && model.phase !== "playing" && (
               <span className="absolute -top-2 -right-2 z-30 flex items-center gap-1 rounded-full border border-primary/60 bg-[#091f18] px-2.5 py-0.5 text-[9px] font-bold text-primary shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
                 <span aria-hidden="true">♛</span>
                 <span>Bid {seat.bidAmount ?? "won"}</span>
@@ -321,6 +326,62 @@ function SeatVideoLayer({
               </span>
             )}
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MobileHand({
+  cards,
+  interactionBlocked,
+  onCardAction,
+  phase,
+}: {
+  cards: TableViewModel["hand"];
+  interactionBlocked: boolean;
+  onCardAction?: (cardId: string) => void;
+  phase: TableViewModel["phase"];
+}) {
+  const bottomClass = phase === "bidding"
+    ? "bottom-34"
+    : phase === "ground"
+      ? "bottom-22"
+      : "bottom-16";
+
+  return (
+    <div
+      aria-label="Your hand"
+      className={cn(
+        "absolute left-2 right-2 z-35 h-28 pointer-events-none",
+        bottomClass,
+      )}
+      role="group"
+    >
+      {cards.map(({ card, enabled, selected }, index) => {
+        const progress = cards.length <= 1 ? 0.5 : index / (cards.length - 1);
+        const disabled = interactionBlocked || !enabled;
+        return (
+          <button
+            aria-label={`${card.rank} of ${card.suit}`}
+            aria-pressed={selected}
+            className={cn(
+              "absolute top-3 aspect-[5/7] w-[clamp(58px,18vw,76px)] overflow-hidden rounded-md border border-black/25 bg-[#fff0c2] shadow-[0_5px_14px_rgba(0,0,0,0.5)] transition-[top,filter] duration-150 pointer-events-auto",
+              enabled && !interactionBlocked && "active:brightness-110",
+              selected && "top-0 border-2 border-primary shadow-[0_0_18px_rgba(229,197,122,0.65)]",
+            )}
+            disabled={disabled}
+            key={card.id}
+            onClick={() => onCardAction?.(card.id)}
+            style={{
+              left: `${progress * 100}%`,
+              transform: `translateX(-${progress * 100}%)`,
+              zIndex: selected ? cards.length + 1 : index,
+            }}
+            type="button"
+          >
+            <CardFace card={card} className="h-full w-full object-cover" />
+          </button>
         );
       })}
     </div>
