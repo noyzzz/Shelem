@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { CopyIcon, MoreHorizontalIcon, VideoIcon, XIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type HudPanel = "media" | "menu" | null;
+export type HudPanel = "media" | null;
 
 type GameHudProps = {
   fullscreenEnabled: boolean;

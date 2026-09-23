@@ -1,20 +1,29 @@
 import { CardFace } from "@/components/PlayingCard";
 import { cn } from "@/lib/utils";
-import type { TableCardView } from "../model/tableTypes";
+import type { TableCardView, TableViewModel } from "../model/tableTypes";
 
 export function DomHand({
   cards,
   interactionBlocked,
   onCardAction,
+  phase,
 }: {
   cards: TableCardView[];
   interactionBlocked: boolean;
   onCardAction?: (cardId: string) => void;
+  phase: TableViewModel["phase"];
 }) {
   const selectable = cards.some((card) => card.enabled);
   return (
     <section
-      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex w-[min(920px,calc(100%-2rem))] flex-col items-center gap-2"
+      className={cn(
+        "absolute left-1/2 -translate-x-1/2 z-30 flex w-[min(920px,calc(100%-2rem))] flex-col items-center gap-2",
+        phase === "bidding"
+          ? "bottom-34 sm:bottom-24"
+          : phase === "ground"
+            ? "bottom-22 sm:bottom-4"
+            : "bottom-4",
+      )}
       aria-label="Your hand"
     >
       <div className="flex items-center gap-2 text-xs text-muted-foreground">

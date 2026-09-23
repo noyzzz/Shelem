@@ -1,12 +1,12 @@
 # Docker workflow
 
-Docker is the default way to run Shelem. Local Node.js installation is not
-required once Docker is installed.
+Docker is the default way to run Shelem. The container workflow needs only
+Docker. The Windows host workflow below also needs a local Node.js installation.
 
 ## Development
 
 For local development on Windows, start PostgreSQL, the web app, game server,
-and LiveKit together:
+and LiveKit together with Node.js installed and Docker Desktop running:
 
 ```powershell
 npm run dev:all

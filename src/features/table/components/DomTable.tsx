@@ -66,6 +66,7 @@ export function DomTable({
         model.phase !== "match-complete" && (
           <DomHand
             cards={model.hand}
+            phase={model.phase}
             interactionBlocked={interactionBlocked}
             onCardAction={onCardAction}
           />

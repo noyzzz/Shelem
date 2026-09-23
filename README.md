@@ -32,9 +32,9 @@ docker compose up --build
 Open [http://localhost:5173](http://localhost:5173). The local Compose stack
 starts the web app, game server, and a development LiveKit server.
 
-## Run locally with hot reload
+## Run locally on Windows with hot reload
 
-Start the complete development stack:
+Install Node.js and start Docker Desktop, then start the complete development stack:
 
 ```sh
 npm run dev:all
@@ -46,7 +46,9 @@ also starts local LiveKit and a development-only PostgreSQL container on port
 5433. It synchronizes dependencies when `package-lock.json` changes and waits
 for LiveKit and the game server before it starts Vite. The small host override
 exposes the PostgreSQL service from the regular Compose stack without changing
-its shared configuration. Docker Desktop must be running.
+its shared configuration. Keep this terminal open while developing. Press
+Ctrl+C to stop the web app, game server, and LiveKit. PostgreSQL stays running;
+stop it with `docker compose stop postgres` when you finish.
 
 ## Run the test suite
 

@@ -29,6 +29,11 @@ export function MobileHand({
       )}
       role="group"
     >
+      {phase === "playing" && cards.some((card) => card.enabled) && (
+        <span className="absolute -top-3 left-1 text-xs font-semibold text-primary">
+          Your turn
+        </span>
+      )}
       {cards.map(({ card, enabled, selected }, index) => {
         const progress = cards.length <= 1 ? 0.5 : index / (cards.length - 1);
         const disabled = interactionBlocked || !enabled;

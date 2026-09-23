@@ -57,6 +57,7 @@ export class TableSceneEngine {
   private readonly textureFactory: CardTextureFactory;
   private readonly raycaster = new Raycaster();
   private readonly pointer = new Vector2();
+  private readonly canvasEvents = new AbortController();
   private interactiveMeshes: Object3D[] = [];
   private lastFrameTime = performance.now();
   private model?: TableViewModel;
@@ -134,7 +135,7 @@ export class TableSceneEngine {
     canvas.addEventListener("pointerdown", (event) => {
       if (!this.interactionEnabled) return;
       this.pointerStart = { x: event.clientX, y: event.clientY };
-    });
+    }, { signal: this.canvasEvents.signal });
     canvas.addEventListener("pointerup", (event) => {
       if (!this.interactionEnabled) return;
       const start = this.pointerStart;
@@ -157,11 +158,11 @@ export class TableSceneEngine {
       )[0];
       const cardId = hit?.object.userData.cardId;
       if (cardId && hit.object.userData.enabled) onCardAction(cardId);
-    });
+    }, { signal: this.canvasEvents.signal });
     canvas.addEventListener("webglcontextlost", (event) => {
       event.preventDefault();
       onRendererError();
-    });
+    }, { signal: this.canvasEvents.signal });
 
     const render = (time: number) => {
       const delta = Math.min((time - this.lastFrameTime) / 1000, 0.05);
@@ -311,8 +312,7 @@ export class TableSceneEngine {
       }
       card.setState(specification.enabled, specification.selected);
       card.setTarget(specification.target, immediate);
-      if (specification.enabled)
-        this.interactiveMeshes.push(...card.pickMeshes);
+      this.interactiveMeshes.push(...card.pickMeshes);
     });
 
     this.cards.forEach((card, id) => {
@@ -349,6 +349,7 @@ export class TableSceneEngine {
   }
 
   destroy() {
+    this.canvasEvents.abort();
     this.renderer.setAnimationLoop(null);
     this.controls.dispose();
     this.cards.forEach((card) => card.destroy());

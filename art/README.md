@@ -6,7 +6,7 @@ Original assets made for this game in Blender. The scene includes an oval walnut
 
 - `blender/persian-lounge.blend`: editable Blender source.
 - `blender/build_lounge.py`: repeatable Blender construction and export script.
-- `blender/persian-lounge.stats.json`: mesh counts and export size from Blender.
+- `blender/persian-lounge.stats.json`: generated mesh counts and export size from Blender; not tracked in Git.
 - `textures/make_rug.py`: original rug pattern generator; requires Pillow.
 - `textures/persian-rug.png`: rug color texture, embedded in the GLB.
 - `export_menu_model.py`: standard-library Python helper that extracts menu furniture from the full GLB.

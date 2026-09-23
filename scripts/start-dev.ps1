@@ -1,3 +1,8 @@
+param(
+  [ValidateSet("all", "game", "web")]
+  [string]$Service = "all"
+)
+
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -35,6 +40,33 @@ function Test-TcpPort {
   } finally {
     $client.Dispose()
   }
+}
+
+function Wait-ForTcpPort {
+  param([string]$Name, [int]$Port)
+
+  Write-Host "Waiting for $Name on port $Port..."
+  $deadline = [DateTime]::UtcNow.AddSeconds(60)
+  while ([DateTime]::UtcNow -lt $deadline) {
+    if (Test-TcpPort -Port $Port) {
+      Write-Host "$Name is ready on port $Port."
+      return
+    }
+    Start-Sleep -Milliseconds 250
+  }
+  throw "$Name did not open port $Port within 60 seconds."
+}
+
+# Child processes share this launcher so port checks have one implementation.
+if ($Service -ne "all") {
+  Wait-ForTcpPort -Name "LiveKit" -Port 7880
+  if ($Service -eq "game") {
+    & node --watch server/index.mjs
+  } else {
+    Wait-ForTcpPort -Name "The game server" -Port 3001
+    & npm run dev
+  }
+  exit $LASTEXITCODE
 }
 
 $requiredPorts = 5173, 3001, 7880, 7881
@@ -98,6 +130,6 @@ Write-Host "Starting LiveKit, the game server, and the web app..."
 Write-Host "The web address will appear after all required services are ready."
 & $concurrentlyPath --kill-others --names "media,game,web" `
   "npm run media" `
-  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dev-service.ps1 game" `
-  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dev-service.ps1 web"
+  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Service game" `
+  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Service web"
 exit $LASTEXITCODE

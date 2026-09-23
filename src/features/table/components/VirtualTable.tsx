@@ -116,7 +116,7 @@ export function VirtualTable({
         </span>
       </div>
       <TableAccessibility
-        cards={model.hand}
+        model={model}
         interactionBlocked={interactionBlocked}
         onCardAction={onCardAction}
         status={`${status}. ${detail}`}

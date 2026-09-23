@@ -6,3 +6,4 @@ dist/
 *.log
 *.tsbuildinfo
 art/blender/*.blend1
+art/blender/*.stats.json
