@@ -458,10 +458,23 @@ function ParticipantVideo({
     : publication?.videoTrack;
 
   useEffect(() => {
-    setSeatVideoRoot(
-      document.getElementById(seatCameraTargetId(participant.identity)),
-    );
-  }, [participant.identity, player?.position]);
+    const targetId = seatCameraTargetId(participant.identity);
+    const syncSeatVideoRoot = () => {
+      setSeatVideoRoot(document.getElementById(targetId));
+    };
+
+    // The mobile hand can remove and restore a target without a seat change.
+    const observer = new MutationObserver(syncSeatVideoRoot);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["id"],
+    });
+    syncSeatVideoRoot();
+
+    return () => observer.disconnect();
+  }, [participant.identity]);
 
   const name = player?.name || participant.name || "Player";
   const cameraOn = Boolean(
