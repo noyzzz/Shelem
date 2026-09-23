@@ -1,3 +1,7 @@
+param(
+  [switch]$InstallOnly
+)
+
 $ErrorActionPreference = "Stop"
 
 $version = "1.13.1"
@@ -28,6 +32,11 @@ if (-not (Test-Path -LiteralPath $serverPath)) {
   }
 
   Expand-Archive -LiteralPath $archivePath -DestinationPath $installDirectory -Force
+}
+
+if ($InstallOnly) {
+  Write-Host "LiveKit $version is installed."
+  exit 0
 }
 
 $nodeIp = $env:LIVEKIT_NODE_IP

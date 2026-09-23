@@ -1,0 +1,352 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: "Outfit", "Plus Jakarta Sans", sans-serif;
+    --font-sans: "Plus Jakarta Sans", "Outfit", sans-serif;
+    --font-card: "Cinzel", Georgia, serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    --background: #081611;
+    --foreground: #f3f0e8;
+    --card: #0d221b;
+    --card-foreground: #f3f0e8;
+    --popover: #10271f;
+    --popover-foreground: #f3f0e8;
+    --primary: #e5c57a;
+    --primary-foreground: #102117;
+    --secondary: rgb(255 255 255 / 6%);
+    --secondary-foreground: #f3f0e8;
+    --muted: rgb(255 255 255 / 5%);
+    --muted-foreground: #9eb1a7;
+    --accent: rgb(229 197 122 / 12%);
+    --accent-foreground: #e5c57a;
+    --destructive: #ea9a8f;
+    --border: rgb(255 255 255 / 10%);
+    --input: rgb(255 255 255 / 14%);
+    --ring: #e5c57a;
+    --chart-1: #e5c57a;
+    --chart-2: #7ec7b1;
+    --chart-3: #9eb1a7;
+    --chart-4: #c7564b;
+    --chart-5: #6c8479;
+    --radius: 0.375rem;
+    --sidebar: #0d221b;
+    --sidebar-foreground: #f3f0e8;
+    --sidebar-primary: #e5c57a;
+    --sidebar-primary-foreground: #102117;
+    --sidebar-accent: rgb(229 197 122 / 12%);
+    --sidebar-accent-foreground: #e5c57a;
+    --sidebar-border: rgb(255 255 255 / 10%);
+    --sidebar-ring: #e5c57a;
+}
+
+.dark {
+    color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+  html.game-is-immersive,
+  body.game-is-immersive {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+}
+
+.menu-table-fallback {
+  position: absolute;
+  inset: 18% -8% 8% 42%;
+  border: 1px solid rgb(229 197 122 / 30%);
+  border-radius: 50%;
+  background: #103b2b;
+  box-shadow:
+    0 0 0 22px #352419,
+    0 28px 80px rgb(0 0 0 / 55%);
+  transform: rotate(-4deg);
+}
+
+.home-layout {
+  --home-gutter: max(clamp(1.25rem, 5vw, 8rem), env(safe-area-inset-left), env(safe-area-inset-right));
+  display: grid;
+  grid-template-areas: "table" "menu";
+  justify-items: center;
+  align-content: center;
+  gap: clamp(1rem, 3svh, 3rem);
+  width: min(100% - 2 * var(--home-gutter), 120rem);
+  min-height: 100svh;
+  margin-inline: auto;
+  padding-top: max(4rem, env(safe-area-inset-top));
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
+/* The menu borrows plaster, oak, and daylight from the game room. These static
+   layers sit behind the existing table and add no GPU scene or image assets. */
+.menu-theme {
+  --background: #eee5d5;
+  --foreground: #253c30;
+  --primary: #294d3c;
+  --primary-foreground: #fff7e8;
+  --card: #f8f1e5;
+  --card-foreground: #253c30;
+  --popover: #f8f1e5;
+  --popover-foreground: #253c30;
+  --secondary: #f8f1e5;
+  --secondary-foreground: #253c30;
+  --muted: #e3d8c5;
+  --muted-foreground: #626852;
+  --accent: #e1e4d4;
+  --accent-foreground: #294d3c;
+  --destructive: #a33f32;
+  --border: rgb(80 64 41 / 24%);
+  --input: rgb(80 64 41 / 32%);
+  --ring: #52735b;
+  color-scheme: light;
+  color: var(--foreground);
+}
+
+.home-room {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(105deg, #eee5d5 18%, #e9deca 52%, #f7edd7 100%);
+}
+
+.home-room-window {
+  position: absolute;
+  top: 9%;
+  right: 7%;
+  width: 43%;
+  height: 39%;
+  overflow: hidden;
+  border: 9px solid #646354;
+  background: linear-gradient(#cbdcd8, #e9e9cf 78%);
+  box-shadow: 0 0 0 2px #c1b49c, 0 14px 0 2px #b09874, 9px 18px 30px rgb(76 57 30 / 12%);
+}
+
+.home-room-garden {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, rgb(255 252 228 / 22%), transparent 75%);
+}
+
+.home-room-garden::before,
+.home-room-garden::after {
+  content: "";
+  position: absolute;
+  width: 130%;
+  height: 62%;
+  border-radius: 50% 50% 0 0;
+}
+
+.home-room-garden::before {
+  bottom: -34%;
+  left: -32%;
+  background: #a9b69a;
+  transform: rotate(7deg);
+}
+
+.home-room-garden::after {
+  bottom: -43%;
+  right: -27%;
+  background: #8eaa8a;
+  transform: rotate(-9deg);
+}
+
+.home-room-window-frame {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(0deg, transparent 77%, #646354 77%, #646354 calc(77% + 5px), transparent calc(77% + 5px)),
+    linear-gradient(90deg, transparent calc(33.333% - 3px), #646354 calc(33.333% - 3px), #646354 calc(33.333% + 3px), transparent calc(33.333% + 3px), transparent calc(66.666% - 3px), #646354 calc(66.666% - 3px), #646354 calc(66.666% + 3px), transparent calc(66.666% + 3px));
+}
+
+.home-room-floor {
+  position: absolute;
+  inset: 53% 0 0;
+  border-top: 8px solid #b79b77;
+  background:
+    linear-gradient(0deg, rgb(239 227 209 / 88%), transparent),
+    repeating-linear-gradient(105deg, transparent 0 109px, rgb(88 59 27 / 6%) 110px 111px),
+    linear-gradient(105deg, #e5d6bd, #cbb18d);
+}
+
+.home-room-sunlight {
+  position: absolute;
+  inset: 53% 0 0 30%;
+  opacity: 0.55;
+  clip-path: polygon(38% 0, 92% 0, 69% 87%, 0 87%);
+  background: repeating-linear-gradient(105deg, rgb(255 246 216 / 72%) 0 23%, transparent 23% 24%);
+  mask-image: linear-gradient(#000, transparent 96%);
+}
+
+.home-room::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #eee5d5 0%, rgb(238 229 213 / 95%) 25%, transparent 56%);
+}
+
+.home-brand-mark,
+.menu-screen .brand-mark {
+  color: #294d3c;
+  border: 1px solid #b3955c;
+  background: linear-gradient(145deg, #eed99f, #d5b876);
+  box-shadow: 0 4px 12px rgb(94 67 28 / 12%), inset 0 1px 0 rgb(255 255 255 / 50%);
+}
+
+.home-menu {
+  grid-area: menu;
+  width: 100%;
+  min-width: 0;
+  max-width: 28rem;
+}
+
+.home-table {
+  --primary: #e5c57a;
+  grid-area: table;
+  position: relative;
+  width: min(100%, 38rem, 56svh);
+  aspect-ratio: 1.65;
+  pointer-events: none;
+}
+
+.home-table .menu-table-scene {
+  background: none;
+}
+
+/* The menu camera frames the furniture and rug inside this layout cell. */
+.home-table .menu-table-stage {
+  container-type: inline-size;
+  inset: 0;
+  opacity: 1;
+  transform: none;
+}
+
+.home-table .menu-seat-marker {
+  width: clamp(1.5rem, 4cqw, 3.5rem);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.home-table .menu-seat-marker > span {
+  font-size: clamp(0.625rem, 1cqw, 0.875rem);
+}
+
+.home-table .menu-seat-marker > strong {
+  margin-top: clamp(0.125rem, 0.4cqw, 0.375rem);
+  font-size: clamp(0.4rem, 0.7cqw, 0.625rem);
+}
+
+.home-table .menu-table-fallback {
+  inset: 32% 10% 18%;
+}
+
+@media (max-width: 63.999rem) and (min-height: 32.001rem) {
+  .home-room-window {
+    top: 7%;
+    right: 10%;
+    width: 80%;
+    height: 30%;
+    border-width: 6px;
+  }
+
+  .home-room-floor {
+    top: 41%;
+  }
+
+  .home-room-sunlight {
+    inset: 41% 0 30%;
+  }
+
+  .home-room::after {
+    background: linear-gradient(0deg, #eee5d5 18%, rgb(238 229 213 / 96%) 34%, transparent 70%);
+  }
+
+  .home-layout {
+    gap: clamp(2rem, 4svh, 3rem);
+  }
+}
+
+@media (min-width: 64rem) and (min-aspect-ratio: 1), (min-width: 40rem) and (max-height: 32rem) {
+  .home-layout {
+    grid-template-areas: "menu table";
+    grid-template-columns: clamp(18rem, 29vw, 38rem) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(1.5rem, 4vw, 6rem);
+    padding-block: max(3rem, env(safe-area-inset-top), env(safe-area-inset-bottom));
+  }
+
+  .home-menu {
+    max-width: none;
+  }
+
+  .home-table {
+    width: min(100%, max(20rem, calc((100svh - 6rem) * 1.65)));
+  }
+}

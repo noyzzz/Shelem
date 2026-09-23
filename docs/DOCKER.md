@@ -1,20 +1,24 @@
 # Docker workflow
 
-Docker is the default way to run Shelem. Local Node.js installation is not
-required once Docker is installed.
+Docker is the default way to run Shelem. The container workflow needs only
+Docker. The Windows host workflow below also needs a local Node.js installation.
 
 ## Development
 
-For local development on Windows, start the web app, game server, and LiveKit
-together:
+For local development on Windows, start PostgreSQL, the web app, game server,
+and LiveKit together with Node.js installed and Docker Desktop running:
 
 ```powershell
 npm run dev:all
 ```
 
-The first run downloads the official LiveKit Windows release and verifies its
-SHA-256 checksum. The launcher automatically advertises the active LAN address
-for WebRTC media. Keep this terminal open while testing.
+The command runs `npm ci` when `package-lock.json` changes. The first run
+downloads the official LiveKit Windows release and verifies its SHA-256
+checksum. The launcher uses fixed local media credentials, starts PostgreSQL,
+and waits for LiveKit and the game server before it starts Vite. It also exposes
+the Compose PostgreSQL service on host port 5433. Keep this terminal open while
+testing. Vite refreshes the web app, and Node restarts the game server when its
+source changes.
 
 Alternatively, start the development containers:
 
@@ -25,7 +29,8 @@ docker compose up --build
 Open `http://localhost:5173`.
 
 Source files are mounted into the container, so changes refresh in the browser
-without rebuilding the image.
+without rebuilding the image. The web container runs `npm ci` when it starts so
+the persistent `node_modules` volume stays synchronized with the lockfile.
 
 When using Docker Desktop, set `LIVEKIT_NODE_IP` in `.env` to the computer's
 LAN address (for example, the Wi-Fi IPv4 address) so browsers can reach the
@@ -67,10 +72,10 @@ The Compose project currently runs:
 - `web`: React browser client
 - `game-server`: authoritative WebSocket room and presence state
 - `livekit`: self-hosted WebRTC voice and video
+- `postgres`: accounts, matches, and game history
 
 Future gameplay infrastructure may include:
 
-- `postgres`: accounts, matches, and game history
 - `redis`: room presence and short-lived reconnect state
 
 All services will communicate through the private `shelem` Docker network.

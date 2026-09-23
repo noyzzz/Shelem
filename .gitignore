@@ -5,3 +5,5 @@ dist/
 !.env.production.example
 *.log
 *.tsbuildinfo
+art/blender/*.blend1
+art/blender/*.stats.json
