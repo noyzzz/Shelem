@@ -11,20 +11,20 @@ export function HomeScreen({
   onBegin: (flow: "create" | "join") => void;
 }) {
   return (
-    <section className="relative z-10 flex w-full max-w-md flex-col animate-in fade-in-0 slide-in-from-left-2 duration-500">
-      <div className="flex items-center gap-3.5">
+    <section className="home-menu relative z-10 flex w-full flex-col animate-in fade-in-0 slide-in-from-left-2 duration-500">
+      <div className="flex items-center gap-[clamp(0.875rem,1.2vw,1.5rem)]">
         <span
           aria-hidden="true"
-          className="grid size-13 shrink-0 place-items-center rounded-xl border border-[#edd493]/60 bg-gradient-to-b from-[#f3dfa7] via-primary to-[#caa353] font-heading text-2xl font-bold text-primary-foreground shadow-[0_4px_16px_rgba(229,197,122,0.25),inset_0_1px_1px_rgba(255,255,255,0.4)] sm:size-15 sm:text-3xl"
+          className="grid size-[clamp(3.25rem,4vw,5.5rem)] shrink-0 place-items-center rounded-xl border border-[#edd493]/60 bg-gradient-to-b from-[#f3dfa7] via-primary to-[#caa353] font-heading text-[clamp(1.5rem,2vw,2.5rem)] font-bold text-primary-foreground shadow-[0_4px_16px_rgba(229,197,122,0.25),inset_0_1px_1px_rgba(255,255,255,0.4)]"
         >
           ش
         </span>
-        <h1 className="m-0 font-heading text-4xl font-semibold leading-none tracking-tight text-foreground drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)] sm:text-5xl">
+        <h1 className="m-0 font-heading text-[clamp(2.25rem,3.2vw,4.5rem)] font-semibold leading-none tracking-tight text-foreground drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
           PlayRook
         </h1>
       </div>
 
-      <nav aria-label="PlayRook main menu" className="mt-8 flex flex-col gap-3">
+      <nav aria-label="PlayRook main menu" className="mt-[clamp(1.5rem,2.5vw,3rem)] flex flex-col gap-[clamp(0.75rem,1vw,1rem)]">
         <Button
           className="w-full justify-between"
           onClick={() => onBegin("create")}

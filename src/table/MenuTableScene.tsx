@@ -50,6 +50,7 @@ export function MenuTableScene({ playerName }: { playerName: string }) {
           applySeatProjection(seatElements.current[position], projection);
         },
         seatProjectionHeight: 0.405,
+        transparentBackground: true,
       });
       const bounds = host.getBoundingClientRect();
       scene.resize(bounds.width, bounds.height);
@@ -89,7 +90,7 @@ export function MenuTableScene({ playerName }: { playerName: string }) {
         {rendererUnavailable && <div className="menu-table-fallback" />}
         {menuModel.seats.map((seat) => (
           <div
-            className="absolute top-0 left-0 hidden size-14 md:block md:opacity-0 pointer-events-none"
+            className="menu-seat-marker absolute top-0 left-0 hidden size-14 md:block md:opacity-0 pointer-events-none"
             key={seat.displayPosition}
             ref={(element) => {
               if (element) seatElements.current[seat.displayPosition] = element;

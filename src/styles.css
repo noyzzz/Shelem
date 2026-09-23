@@ -118,6 +118,7 @@
   }
 }
 
+.menu-screen,
 .menu-table-scene {
   background:
     radial-gradient(ellipse 65% 55% at 70% 40%, rgb(229 197 122 / 12%), transparent 68%),
@@ -164,5 +165,82 @@
 
   .menu-table-fallback {
     inset: 7% -34% 43% -18%;
+  }
+}
+
+.home-layout {
+  --home-gutter: max(clamp(1.25rem, 5vw, 8rem), env(safe-area-inset-left), env(safe-area-inset-right));
+  display: grid;
+  grid-template-areas: "table" "menu";
+  justify-items: center;
+  align-content: center;
+  gap: clamp(1rem, 3svh, 3rem);
+  width: min(100% - 2 * var(--home-gutter), 120rem);
+  min-height: 100svh;
+  margin-inline: auto;
+  padding-top: max(4rem, env(safe-area-inset-top));
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
+.home-menu {
+  grid-area: menu;
+  min-width: 0;
+  max-width: 28rem;
+}
+
+.home-table {
+  grid-area: table;
+  position: relative;
+  width: min(100%, 38rem, 56svh);
+  aspect-ratio: 1.65;
+  pointer-events: none;
+}
+
+.home-table .menu-table-scene {
+  background: none;
+}
+
+/* Frame the complete table and all four seats inside its own layout cell. */
+.home-table .menu-table-stage {
+  container-type: inline-size;
+  inset: -27% -9% 2%;
+  opacity: 1;
+  transform: none;
+}
+
+.home-table .menu-seat-marker {
+  width: clamp(1.5rem, 4cqw, 3.5rem);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.home-table .menu-seat-marker > span {
+  font-size: clamp(0.625rem, 1cqw, 0.875rem);
+}
+
+.home-table .menu-seat-marker > strong {
+  margin-top: clamp(0.125rem, 0.4cqw, 0.375rem);
+  font-size: clamp(0.4rem, 0.7cqw, 0.625rem);
+}
+
+.home-table .menu-table-fallback {
+  inset: 32% 10% 18%;
+}
+
+@media (min-width: 64rem) and (min-aspect-ratio: 1), (min-width: 40rem) and (max-height: 32rem) {
+  .home-layout {
+    grid-template-areas: "menu table";
+    grid-template-columns: clamp(18rem, 29vw, 38rem) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(1.5rem, 4vw, 6rem);
+    padding-block: max(3rem, env(safe-area-inset-top), env(safe-area-inset-bottom));
+  }
+
+  .home-menu {
+    max-width: none;
+  }
+
+  .home-table {
+    width: min(100%, max(20rem, calc((100svh - 6rem) * 1.65)));
   }
 }

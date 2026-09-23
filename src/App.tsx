@@ -695,9 +695,13 @@ export function App() {
   }
 
   return (
-    <main className="relative min-h-[100svh] overflow-hidden bg-background">
-      <MenuTableScene playerName={accountUser?.name || name || "Guest"} />
-      <div aria-hidden="true" className="menu-scene-scrim absolute inset-0" />
+    <main className="menu-screen relative min-h-[100svh] overflow-hidden bg-background">
+      {screen !== "home" && (
+        <>
+          <MenuTableScene playerName={accountUser?.name || name || "Guest"} />
+          <div aria-hidden="true" className="menu-scene-scrim absolute inset-0" />
+        </>
+      )}
       {screen === "home" ? (
         <div className="absolute top-3 right-3 z-30 sm:top-5 sm:right-6">
           <AccountPanel blend onUserChange={setAccountUser} />
@@ -711,14 +715,19 @@ export function App() {
 
       <div
         className={cn(
-          "relative z-10 mx-auto flex min-h-[100svh] w-full max-w-[1536px] px-5 pt-24 pb-7 sm:px-8 sm:pb-10 lg:px-12",
+          "relative z-10",
           screen === "home"
-            ? "items-end justify-start md:items-center"
-            : "items-center justify-center",
+            ? "home-layout"
+            : "mx-auto flex min-h-[100svh] w-full max-w-[1536px] items-center justify-center px-5 pt-24 pb-7 sm:px-8 sm:pb-10 lg:px-12",
         )}
       >
         {screen === "home" ? (
-          <HomeScreen onBegin={begin} />
+          <>
+            <HomeScreen onBegin={begin} />
+            <div className="home-table">
+              <MenuTableScene playerName={accountUser?.name || name || "Guest"} />
+            </div>
+          </>
         ) : (
           <SetupScreen
             connectionStatus={connectionStatus}

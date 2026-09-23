@@ -35,7 +35,7 @@ const buttonVariants = cva(
         "icon-sm":
           "size-7 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-lg",
         "icon-lg": "size-9",
-        menu: "h-13.5 gap-3 rounded-lg px-4 text-sm font-semibold tracking-normal sm:h-15 sm:px-5 sm:text-base",
+        menu: "h-[clamp(3.5rem,4vw,4.75rem)] gap-3 rounded-lg px-[clamp(1rem,1.5vw,1.75rem)] text-[clamp(1rem,1.1vw,1.25rem)] font-semibold tracking-normal [&_svg:not([class*='size-'])]:size-[1.1em]",
       },
     },
     defaultVariants: {

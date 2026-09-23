@@ -1,0 +1,1 @@
+When commiting, always check existing commit history and use the same commit message format.

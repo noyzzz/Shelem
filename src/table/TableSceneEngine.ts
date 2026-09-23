@@ -231,6 +231,7 @@ export class TableSceneEngine {
     onRendererError,
     onSeatProjection,
     seatProjectionHeight = SEAT_ANCHORS.north.y,
+    transparentBackground = false,
   }: {
     canvas: HTMLCanvasElement;
     onCardAction: (cardId: string) => void;
@@ -240,6 +241,7 @@ export class TableSceneEngine {
       projection: SeatProjection,
     ) => void;
     seatProjectionHeight?: number;
+    transparentBackground?: boolean;
   }) {
     this.seatProjectionHeight = seatProjectionHeight;
     this.renderer = new WebGLRenderer({
@@ -252,7 +254,7 @@ export class TableSceneEngine {
     this.renderer.setClearColor(0x05120d, 0);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
     this.renderer.shadowMap.enabled = true;
-    this.scene.background = new Color(0x05120d);
+    this.scene.background = transparentBackground ? null : new Color(0x05120d);
     this.scene.fog = new FogExp2(0x05120d, 0.015);
     this.camera.position.copy(CAMERA_PRESETS.landscape.position);
 
@@ -270,7 +272,9 @@ export class TableSceneEngine {
     this.controls.update();
 
     this.textureFactory = new CardTextureFactory(this.renderer);
-    const tableEnvironment = buildTableEnvironment(this.scene, this.seatRoot);
+    const tableEnvironment = buildTableEnvironment(this.scene, this.seatRoot, {
+      transparentBackground,
+    });
     this.chairMaterials = tableEnvironment.chairMaterials;
     this.chairs = tableEnvironment.chairs;
     this.scene.add(this.cardRoot, this.seatRoot);

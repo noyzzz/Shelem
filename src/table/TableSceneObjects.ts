@@ -10,6 +10,7 @@ import {
   MeshStandardMaterial,
   PlaneGeometry,
   Scene,
+  ShadowMaterial,
   SRGBColorSpace,
   Vector3,
   WebGLRenderer,
@@ -19,30 +20,38 @@ import type { Card } from "../gameClient";
 import type { RelativePosition } from "./tableTypes";
 import { SUIT_SYMBOL } from "./tableConfig";
 
-export function buildTableEnvironment(scene: Scene, seatRoot: Group) {
+export function buildTableEnvironment(
+  scene: Scene,
+  seatRoot: Group,
+  { transparentBackground = false }: { transparentBackground?: boolean } = {},
+) {
   const chairMaterials = new Map<RelativePosition, MeshStandardMaterial>();
   const chairs = new Map<RelativePosition, Mesh>();
-  const floorMaterial = new MeshStandardMaterial({
-    color: 0x071610,
-    metalness: 0,
-    roughness: 1,
-  });
+  const floorMaterial = transparentBackground
+    ? new ShadowMaterial({ opacity: 0.25, fog: false })
+    : new MeshStandardMaterial({
+        color: 0x071610,
+        metalness: 0,
+        roughness: 1,
+      });
   const floor = new Mesh(new PlaneGeometry(120, 120), floorMaterial);
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -0.02;
   floor.receiveShadow = true;
   scene.add(floor);
 
-  const grid = new GridHelper(30, 30, 0x173c2c, 0x0d241a);
-  grid.position.y = 0.005;
-  const gridMaterials = Array.isArray(grid.material)
-    ? grid.material
-    : [grid.material];
-  gridMaterials.forEach((material) => {
-    material.opacity = 0.12;
-    material.transparent = true;
-  });
-  scene.add(grid);
+  if (!transparentBackground) {
+    const grid = new GridHelper(30, 30, 0x173c2c, 0x0d241a);
+    grid.position.y = 0.005;
+    const gridMaterials = Array.isArray(grid.material)
+      ? grid.material
+      : [grid.material];
+    gridMaterials.forEach((material) => {
+      material.opacity = 0.12;
+      material.transparent = true;
+    });
+    scene.add(grid);
+  }
 
   const woodMaterial = new MeshStandardMaterial({
     color: 0x2c190e,
