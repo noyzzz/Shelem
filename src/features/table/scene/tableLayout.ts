@@ -57,9 +57,7 @@ function layoutLocalHand(model: TableViewModel): DesiredCard[] {
   return model.hand.map((view, index) => {
     const distance = index - (handCount - 1) / 2;
     const fanDrop = Math.abs(distance) * 0.013;
-    const stackDepth = view.selected
-      ? (handCount + 2) * LOCAL_HAND_STACK_GAP
-      : index * LOCAL_HAND_STACK_GAP;
+    const stackDepth = index * LOCAL_HAND_STACK_GAP;
     const position = new Vector3(handStart + index * handStep, 1.05, 3.55)
       .addScaledVector(LOCAL_HAND_SURFACE_UP, -fanDrop)
       .addScaledVector(LOCAL_HAND_NORMAL, stackDepth);
@@ -77,7 +75,7 @@ function layoutLocalHand(model: TableViewModel): DesiredCard[] {
         quaternion: faceUp(
           new Euler(LOCAL_HAND_TILT, 0, MathUtils.degToRad(-distance * 2.2)),
         ),
-        scale: view.selected ? 1.14 : 1,
+        scale: 1,
       },
     };
   });

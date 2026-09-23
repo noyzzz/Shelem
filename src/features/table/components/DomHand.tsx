@@ -28,7 +28,7 @@ export function DomHand({
             <button
               className={cn(
                 "relative aspect-[5/7] w-12 sm:w-16 overflow-hidden rounded-md border border-border shadow-md transition-all",
-                selected && "-translate-y-2 ring-2 ring-primary border-primary",
+                selected && "ring-2 ring-primary border-primary",
                 !selectable && "opacity-90",
               )}
               disabled={interactionBlocked || !enabled}

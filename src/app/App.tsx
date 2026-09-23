@@ -100,7 +100,7 @@ export function App() {
     <MenuLayout
       home={screen === "home"}
       playerName={account.user?.name || name || "Guest"}
-      account={<AccountPanel blend={screen === "home"} account={account} />}
+      account={<AccountPanel blend account={account} />}
     >
       {screen === "home" ? (
         <HomeScreen onBegin={begin} />

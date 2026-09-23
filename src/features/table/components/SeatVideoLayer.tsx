@@ -8,12 +8,14 @@ import type { CSSProperties } from "react";
 import type { RelativePosition, TableViewModel } from "../model/tableTypes";
 
 export function SeatVideoLayer({
+  dockSouthSeat,
   hideSouthSeat,
   model,
   onSeatElement,
   onSeatSelect,
   onSeatVideoTarget,
 }: {
+  dockSouthSeat: boolean;
   hideSouthSeat: boolean;
   model: TableViewModel;
   onSeatElement: (
@@ -28,7 +30,10 @@ export function SeatVideoLayer({
       {model.seats.map((seat) => {
         if (hideSouthSeat && seat.displayPosition === "south") return null;
         const player = seat.player;
-        const style = { "--seat-size": "76px" } as CSSProperties;
+        const docked = dockSouthSeat && seat.displayPosition === "south";
+        const style = {
+          "--seat-size": docked ? "clamp(40px, 7dvh, 52px)" : "76px",
+        } as CSSProperties;
         const frame = player ? (
           <div
             aria-current={seat.turnLabel ? "true" : undefined}
@@ -62,14 +67,14 @@ export function SeatVideoLayer({
         ) : onSeatSelect ? (
           <button
             aria-label={`Move to the ${seat.sourcePosition} seat`}
-            className="relative grid size-[var(--seat-size)] place-items-center rounded-full border-2 border-dashed border-white/25 bg-black/25 font-heading text-xl font-bold text-muted-foreground shadow-sm transition-all hover:scale-105 hover:border-primary hover:text-primary hover:bg-black/40 hover:shadow-[0_0_16px_rgba(229,197,122,0.3)] pointer-events-auto active:scale-95"
+            className="relative grid size-[var(--seat-size)] place-items-center rounded-full border-2 border-dashed border-primary/80 bg-[#0a2119]/95 font-sans text-3xl font-semibold text-primary shadow-md transition-all hover:scale-105 hover:border-primary hover:bg-[#173b2d] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-primary pointer-events-auto active:scale-95"
             onClick={() => onSeatSelect(seat.sourcePosition)}
             type="button"
           >
             <span aria-hidden="true">+</span>
           </button>
         ) : (
-          <div className="relative grid size-[var(--seat-size)] place-items-center rounded-full border border-border/50 bg-white/5 font-heading text-lg font-bold text-muted-foreground/60">
+          <div className="relative grid size-[var(--seat-size)] place-items-center rounded-full border border-primary/60 bg-[#0a2119]/95 font-sans text-lg font-bold text-primary">
             <span aria-hidden="true">·</span>
           </div>
         );
@@ -77,7 +82,11 @@ export function SeatVideoLayer({
         return (
           <div
             className={cn(
-              "absolute top-0 left-0 grid justify-items-center text-center opacity-0 will-change-transform pointer-events-none",
+              "absolute grid justify-items-center text-center opacity-0 pointer-events-none",
+              docked
+                ? "left-1/2 bottom-4"
+                : "top-0 left-0 will-change-transform",
+              docked && model.phase === "bidding" && "bottom-20",
               seat.turnLabel && "drop-shadow-[0_0_12px_rgba(229,197,122,0.6)]",
             )}
             data-seat-position={seat.displayPosition}
@@ -86,22 +95,27 @@ export function SeatVideoLayer({
             style={style}
           >
             {frame}
-            <strong className="mt-1.5 max-w-[120px] truncate font-heading text-xs font-bold text-[#f3f0e8] drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
-              {player?.name ?? "Open seat"}
-            </strong>
-            {(!player || !player.connected || model.phase === "lobby") && (
-              <small className="text-[10px] font-medium text-muted-foreground/90">
-                {player
-                  ? !player.connected
-                    ? "Reconnecting…"
-                    : seat.ready
-                      ? "Ready"
-                      : "At table"
-                  : "Available"}
-              </small>
-            )}
+            <div className="mt-1.5 grid origin-top justify-items-center rounded-md border border-[#dac699]/60 bg-[#0a2119]/95 px-2.5 py-1 shadow-[0_2px_8px_rgba(0,0,0,0.35)] scale-[var(--seat-label-scale,1)]">
+              <strong className="max-w-[150px] truncate font-sans text-sm font-semibold leading-tight text-[#fff7e8] sm:text-base">
+                {player?.name ?? "Open seat"}
+              </strong>
+              {(!player || !player.connected || model.phase === "lobby") && (
+                <small className="font-sans text-xs font-semibold leading-5 text-[#e5d5b1]">
+                  {player
+                    ? !player.connected
+                      ? "Reconnecting…"
+                      : seat.ready
+                        ? "Ready"
+                        : "At table"
+                    : "Available"}
+                </small>
+              )}
+            </div>
             {seat.bidWinner && model.phase !== "playing" && (
-              <span className="absolute -top-2 -right-2 z-30 flex items-center gap-1 rounded-full border border-primary/60 bg-[#091f18] px-2.5 py-0.5 text-[9px] font-bold text-primary shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+              <span className={cn(
+                "absolute z-30 flex w-max items-center gap-1 whitespace-nowrap rounded-full border border-primary/60 bg-[#091f18] px-2.5 py-0.5 text-[9px] font-bold text-primary shadow-[0_2px_8px_rgba(0,0,0,0.6)]",
+                docked ? "left-full top-1 ml-2" : "-top-2 -right-2",
+              )}>
                 <span aria-hidden="true">♛</span>
                 <span>Bid {seat.bidAmount ?? "won"}</span>
               </span>

@@ -1,157 +1,64 @@
 import { SUIT_SYMBOL } from "@/domain/cards";
 import type { Card } from "@/domain/types";
-import type { RelativePosition } from "@/features/table/model/tableTypes";
-import {
-  AmbientLight,
-  CanvasTexture,
-  CylinderGeometry,
-  DirectionalLight,
-  GridHelper,
-  Group,
-  HemisphereLight,
-  Mesh,
-  MeshStandardMaterial,
-  PlaneGeometry,
-  Scene,
-  ShadowMaterial,
-  SRGBColorSpace,
-  Vector3,
-  WebGLRenderer,
-  type Texture,
-} from "three";
+import { CanvasTexture, SRGBColorSpace, WebGLRenderer, type Texture } from "three";
 
-export function buildTableEnvironment(
-  scene: Scene,
-  seatRoot: Group,
-  { transparentBackground = false }: { transparentBackground?: boolean } = {},
-) {
-  const chairMaterials = new Map<RelativePosition, MeshStandardMaterial>();
-  const chairs = new Map<RelativePosition, Mesh>();
-  const floorMaterial = transparentBackground
-    ? new ShadowMaterial({ opacity: 0.25, fog: false })
-    : new MeshStandardMaterial({
-        color: 0x071610,
-        metalness: 0,
-        roughness: 1,
-      });
-  const floor = new Mesh(new PlaneGeometry(120, 120), floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -0.02;
-  floor.receiveShadow = true;
-  scene.add(floor);
+export { buildTableEnvironment } from "./TableEnvironment";
 
-  if (!transparentBackground) {
-    const grid = new GridHelper(30, 30, 0x173c2c, 0x0d241a);
-    grid.position.y = 0.005;
-    const gridMaterials = Array.isArray(grid.material)
-      ? grid.material
-      : [grid.material];
-    gridMaterials.forEach((material) => {
-      material.opacity = 0.12;
-      material.transparent = true;
-    });
-    scene.add(grid);
-  }
+const ARTWORK_WIDTH = 300;
+const ARTWORK_HEIGHT = 420;
+const TEXTURE_WIDTH = 512;
+const TEXTURE_HEIGHT = 720;
 
-  const woodMaterial = new MeshStandardMaterial({
-    color: 0x2c190e,
-    metalness: 0.12,
-    roughness: 0.5,
-  });
-  const base = new Mesh(
-    new CylinderGeometry(5.65, 5.65, 0.52, 96),
-    woodMaterial,
-  );
-  base.position.y = 0.34;
-  base.scale.z = 0.62;
-  base.castShadow = true;
-  base.receiveShadow = true;
+export type CardFaceTexture = {
+  texture: Texture;
+  release: () => void;
+};
 
-  const trimMaterial = new MeshStandardMaterial({
-    color: 0xb88e3d,
-    metalness: 0.65,
-    roughness: 0.32,
-  });
-  const trim = new Mesh(
-    new CylinderGeometry(5.31, 5.31, 0.135, 96),
-    trimMaterial,
-  );
-  trim.position.y = 0.636;
-  trim.scale.z = 0.6;
-  trim.receiveShadow = true;
-
-  const feltMaterial = new MeshStandardMaterial({
-    color: 0x0c4833,
-    metalness: 0.02,
-    roughness: 0.84,
-  });
-  const felt = new Mesh(
-    new CylinderGeometry(5.24, 5.24, 0.13, 96),
-    feltMaterial,
-  );
-  felt.position.y = 0.64;
-  felt.scale.z = 0.6;
-  felt.receiveShadow = true;
-  scene.add(base, trim, felt);
-
-  const seatPositions: Record<RelativePosition, Vector3> = {
-    north: new Vector3(0, 0.28, -4.45),
-    south: new Vector3(0, 0.28, 4.45),
-    west: new Vector3(-6.05, 0.28, 0),
-    east: new Vector3(6.05, 0.28, 0),
-  };
-  (Object.keys(seatPositions) as RelativePosition[]).forEach((position) => {
-    const material = new MeshStandardMaterial({
-      color: position === "north" || position === "south" ? 0x8a6d2b : 0x1b5e48,
-      emissive: 0x000000,
-      metalness: 0.08,
-      roughness: 0.65,
-    });
-    const chair = new Mesh(new CylinderGeometry(0.7, 0.78, 0.25, 48), material);
-    chair.position.copy(seatPositions[position]);
-    chair.scale.z = 0.72;
-    chair.castShadow = true;
-    chair.receiveShadow = true;
-    chairMaterials.set(position, material);
-    chairs.set(position, chair);
-    seatRoot.add(chair);
-  });
-
-  const hemisphere = new HemisphereLight(0xffeed1, 0x071e14, 0.85);
-  const ambient = new AmbientLight(0x18382b, 0.35);
-  const key = new DirectionalLight(0xffdfa0, 2.8);
-  key.position.set(-4, 10, 7);
-  key.castShadow = true;
-  key.shadow.mapSize.set(1024, 1024);
-  key.shadow.camera.near = 1;
-  key.shadow.camera.far = 28;
-  key.shadow.camera.left = -10;
-  key.shadow.camera.right = 10;
-  key.shadow.camera.top = 10;
-  key.shadow.camera.bottom = -10;
-  key.shadow.bias = -0.0005;
-  scene.add(hemisphere, ambient, key);
-  return { chairMaterials, chairs };
-}
 export class CardTextureFactory {
-  private readonly cache = new Map<string, CanvasTexture>();
+  private readonly cache = new Map<
+    string,
+    { texture: CanvasTexture; references: number }
+  >();
   readonly back: CanvasTexture;
 
   constructor(private readonly renderer: WebGLRenderer) {
     this.back = this.createBackTexture();
   }
 
-  getFace(card: Card): Texture {
+  acquireFace(card: Card): CardFaceTexture {
     const textureKey = `${card.suit}:${card.rank}`;
-    const existing = this.cache.get(textureKey);
-    if (existing) return existing;
+    const entry = this.cache.get(textureKey) ?? {
+      texture: this.createFaceTexture(card),
+      references: 0,
+    };
+    entry.references += 1;
+    this.cache.set(textureKey, entry);
+    let released = false;
+    return {
+      texture: entry.texture,
+      release: () => {
+        if (released) return;
+        released = true;
+        entry.references -= 1;
+        if (entry.references === 0 && this.cache.get(textureKey) === entry) {
+          this.cache.delete(textureKey);
+          disposeArtwork(entry.texture);
+        }
+      },
+    };
+  }
 
-    const canvas = document.createElement("canvas");
-    canvas.width = 300;
-    canvas.height = 420;
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Unable to create card artwork.");
+  dispose() {
+    this.cache.forEach(({ texture }) => disposeArtwork(texture));
+    this.cache.clear();
+    disposeArtwork(this.back);
+  }
+
+  private createFaceTexture(card: Card) {
+    const { canvas, context } = createArtworkCanvas();
     context.fillStyle = "#faf7ef";
+    // The mesh supplies the rounded silhouette; opaque artwork prevents dark seams.
+    context.fillRect(0, 0, ARTWORK_WIDTH, ARTWORK_HEIGHT);
     roundedRect(context, 2, 2, 296, 416, 20);
     context.fill();
     context.strokeStyle = "#ded7c6";
@@ -188,28 +95,13 @@ export class CardTextureFactory {
       150,
       215,
     );
-    const texture = new CanvasTexture(canvas);
-    texture.colorSpace = SRGBColorSpace;
-    texture.anisotropy = Math.min(
-      8,
-      this.renderer.capabilities.getMaxAnisotropy(),
-    );
-    this.cache.set(textureKey, texture);
-    return texture;
-  }
-
-  dispose() {
-    this.cache.forEach((texture) => texture.dispose());
-    this.back.dispose();
+    return this.createTexture(canvas);
   }
 
   private createBackTexture() {
-    const canvas = document.createElement("canvas");
-    canvas.width = 300;
-    canvas.height = 420;
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Unable to create card artwork.");
+    const { canvas, context } = createArtworkCanvas();
     context.fillStyle = "#f7f3e9";
+    context.fillRect(0, 0, ARTWORK_WIDTH, ARTWORK_HEIGHT);
     roundedRect(context, 2, 2, 296, 416, 20);
     context.fill();
     context.fillStyle = "#163f68";
@@ -255,10 +147,36 @@ export class CardTextureFactory {
       context.stroke();
     }
     context.restore();
+    return this.createTexture(canvas);
+  }
+
+  private createTexture(canvas: HTMLCanvasElement) {
     const texture = new CanvasTexture(canvas);
     texture.colorSpace = SRGBColorSpace;
+    texture.anisotropy = Math.min(
+      8,
+      this.renderer.capabilities.getMaxAnisotropy(),
+    );
     return texture;
   }
+}
+
+function disposeArtwork(texture: CanvasTexture) {
+  texture.dispose();
+  // Release the canvas backing store as well as the GPU allocation.
+  const canvas = texture.image as HTMLCanvasElement;
+  canvas.width = 1;
+  canvas.height = 1;
+}
+
+function createArtworkCanvas() {
+  const canvas = document.createElement("canvas");
+  canvas.width = TEXTURE_WIDTH;
+  canvas.height = TEXTURE_HEIGHT;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Unable to create card artwork.");
+  context.scale(TEXTURE_WIDTH / ARTWORK_WIDTH, TEXTURE_HEIGHT / ARTWORK_HEIGHT);
+  return { canvas, context };
 }
 
 function roundedRect(

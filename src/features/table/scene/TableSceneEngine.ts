@@ -1,4 +1,4 @@
-import type { Card } from "@/domain/types";
+import { SceneCard } from "@/features/table/scene/SceneCard";
 import type {
   RelativePosition,
   TableViewModel,
@@ -6,31 +6,25 @@ import type {
 import type { SeatProjection } from "@/features/table/scene/sceneTypes";
 import {
   CAMERA_PRESETS,
-  CARD_SIZE,
   RENDER_QUALITY,
   SEAT_ANCHORS,
   TABLE_SURFACE_Y,
 } from "@/features/table/scene/tableConfig";
-import {
-  buildDesiredCards,
-  type SceneCardTarget,
-} from "@/features/table/scene/tableLayout";
+import { buildDesiredCards } from "@/features/table/scene/tableLayout";
 import {
   buildTableEnvironment,
   CardTextureFactory,
 } from "@/features/table/scene/TableSceneObjects";
 import {
+  ACESFilmicToneMapping,
   Color,
-  DoubleSide,
   FogExp2,
   Group,
   MathUtils,
   Mesh,
-  MeshBasicMaterial,
   MeshStandardMaterial,
+  PCFShadowMap,
   PerspectiveCamera,
-  PlaneGeometry,
-  Quaternion,
   Raycaster,
   Scene,
   SRGBColorSpace,
@@ -39,157 +33,8 @@ import {
   WebGLRenderer,
   type Material,
   type Object3D,
-  type Texture,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-
-class SceneCard {
-  readonly group = new Group();
-  readonly id: string;
-  readonly pickMeshes: Object3D[] = [];
-  private readonly materials: Material[] = [];
-  private readonly selection: Mesh;
-  private target: SceneCardTarget;
-  retiring = false;
-
-  constructor({
-    backTexture,
-    card,
-    faceDown,
-    faceTexture,
-    id,
-  }: {
-    backTexture: Texture;
-    card?: Card;
-    faceDown: boolean;
-    faceTexture?: Texture;
-    id: string;
-  }) {
-    this.id = id;
-    const frontMaterial = new MeshStandardMaterial({
-      color: 0xffffff,
-      map: faceDown ? backTexture : faceTexture,
-      metalness: 0.02,
-      roughness: 0.72,
-      side: DoubleSide,
-      transparent: true,
-    });
-    const backMaterial = new MeshStandardMaterial({
-      color: 0xffffff,
-      map: backTexture,
-      metalness: 0.02,
-      roughness: 0.76,
-      side: DoubleSide,
-      transparent: true,
-    });
-    const front = new Mesh(
-      new PlaneGeometry(CARD_SIZE.width, CARD_SIZE.height),
-      frontMaterial,
-    );
-    const back = new Mesh(
-      new PlaneGeometry(CARD_SIZE.width, CARD_SIZE.height),
-      backMaterial,
-    );
-    front.position.z = 0.012;
-    back.position.z = -0.012;
-    back.rotation.y = Math.PI;
-    front.castShadow = true;
-    front.receiveShadow = true;
-    back.castShadow = true;
-    front.userData.cardId = id;
-    back.userData.cardId = id;
-
-    const selectionMaterial = new MeshBasicMaterial({
-      color: 0xe5c57a,
-      opacity: 0.65,
-      side: DoubleSide,
-      transparent: true,
-    });
-    this.selection = new Mesh(
-      new PlaneGeometry(CARD_SIZE.width + 0.05, CARD_SIZE.height + 0.05),
-      selectionMaterial,
-    );
-    this.selection.position.z = -0.025;
-    this.selection.visible = false;
-    this.materials.push(frontMaterial, backMaterial, selectionMaterial);
-    this.pickMeshes.push(front, back);
-    this.group.add(this.selection, front, back);
-    this.group.name = card ? `${card.rank} of ${card.suit}` : "Face-down card";
-    this.target = {
-      opacity: 1,
-      position: new Vector3(),
-      quaternion: new Quaternion(),
-      scale: 1,
-    };
-  }
-
-  setTarget(target: SceneCardTarget, immediate: boolean) {
-    this.target = {
-      opacity: target.opacity,
-      position: target.position.clone(),
-      quaternion: target.quaternion.clone(),
-      scale: target.scale,
-    };
-    if (immediate) {
-      this.group.position.copy(target.position);
-      this.group.quaternion.copy(target.quaternion);
-      this.group.scale.setScalar(target.scale);
-      this.setOpacity(target.opacity);
-    }
-  }
-
-  setState(enabled: boolean, selected: boolean) {
-    this.selection.visible = selected;
-    this.pickMeshes.forEach((mesh) => {
-      mesh.userData.enabled = enabled;
-    });
-  }
-
-  retire(destination: Vector3) {
-    this.retiring = true;
-    this.pickMeshes.forEach((mesh) => {
-      mesh.userData.enabled = false;
-    });
-    this.target = {
-      ...this.target,
-      opacity: 0,
-      position: destination.clone(),
-      scale: this.target.scale * 0.72,
-    };
-  }
-
-  tick(deltaSeconds: number, reducedMotion: boolean) {
-    const blend = reducedMotion
-      ? 1
-      : 1 - Math.pow(0.001, Math.min(deltaSeconds, 0.05) / 0.32);
-    this.group.position.lerp(this.target.position, blend);
-    this.group.quaternion.slerp(this.target.quaternion, blend);
-    const scale = MathUtils.lerp(this.group.scale.x, this.target.scale, blend);
-    this.group.scale.setScalar(scale);
-    const material = this.materials[0];
-    const currentOpacity = "opacity" in material ? material.opacity : 1;
-    this.setOpacity(MathUtils.lerp(currentOpacity, this.target.opacity, blend));
-  }
-
-  private setOpacity(opacity: number) {
-    this.materials.forEach((material) => {
-      if ("opacity" in material) material.opacity = opacity;
-    });
-  }
-
-  get readyToDestroy() {
-    const material = this.materials[0];
-    return this.retiring && "opacity" in material && material.opacity < 0.025;
-  }
-
-  destroy() {
-    this.group.traverse((object) => {
-      if (object instanceof Mesh) object.geometry.dispose();
-    });
-    this.materials.forEach((material) => material.dispose());
-    this.group.removeFromParent();
-  }
-}
 
 export class TableSceneEngine {
   private readonly renderer: WebGLRenderer;
@@ -198,7 +43,7 @@ export class TableSceneEngine {
     CAMERA_PRESETS.landscape.fov,
     1,
     0.1,
-    100,
+    400,
   );
   private readonly controls: OrbitControls;
   private readonly cardRoot = new Group();
@@ -206,7 +51,9 @@ export class TableSceneEngine {
   private readonly cards = new Map<string, SceneCard>();
   private readonly retiredCards = new Set<SceneCard>();
   private readonly chairMaterials: Map<RelativePosition, MeshStandardMaterial>;
-  private readonly chairs: Map<RelativePosition, Mesh>;
+  private readonly chairs: Map<RelativePosition, Object3D>;
+  private readonly disposeEnvironment: () => void;
+  private readonly updateEnvironment: (cameraPosition: Vector3) => void;
   private readonly textureFactory: CardTextureFactory;
   private readonly raycaster = new Raycaster();
   private readonly pointer = new Vector2();
@@ -220,6 +67,7 @@ export class TableSceneEngine {
   private interactionEnabled = true;
   private pointerStart?: { x: number; y: number };
   private readonly seatProjectionHeight: number;
+  private readonly transparentBackground: boolean;
 
   constructor({
     canvas,
@@ -240,6 +88,7 @@ export class TableSceneEngine {
     transparentBackground?: boolean;
   }) {
     this.seatProjectionHeight = seatProjectionHeight;
+    this.transparentBackground = transparentBackground;
     this.renderer = new WebGLRenderer({
       alpha: true,
       antialias: true,
@@ -247,11 +96,14 @@ export class TableSceneEngine {
       powerPreference: "high-performance",
     });
     this.renderer.outputColorSpace = SRGBColorSpace;
-    this.renderer.setClearColor(0x05120d, 0);
+    this.renderer.toneMapping = ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.setClearColor(0xdce7e4, 0);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
     this.renderer.shadowMap.enabled = true;
-    this.scene.background = transparentBackground ? null : new Color(0x05120d);
-    this.scene.fog = new FogExp2(0x05120d, 0.015);
+    this.renderer.shadowMap.type = PCFShadowMap;
+    this.scene.background = transparentBackground ? null : new Color(0xdce7e4);
+    this.scene.fog = new FogExp2(0xdce7e4, transparentBackground ? 0 : 0.009);
     this.camera.position.copy(CAMERA_PRESETS.landscape.position);
 
     this.controls = new OrbitControls(this.camera, canvas);
@@ -260,19 +112,23 @@ export class TableSceneEngine {
     this.controls.dampingFactor = 0.07;
     this.controls.enablePan = false;
     this.controls.minDistance = 6.5;
-    this.controls.maxDistance = 16;
+    this.controls.maxDistance = transparentBackground ? 26 : 16;
     this.controls.minPolarAngle = MathUtils.degToRad(28);
     this.controls.maxPolarAngle = MathUtils.degToRad(78);
     this.controls.rotateSpeed = 0.62;
     this.controls.zoomSpeed = 0.82;
-    this.controls.update();
+    this.resetCamera();
 
     this.textureFactory = new CardTextureFactory(this.renderer);
     const tableEnvironment = buildTableEnvironment(this.scene, this.seatRoot, {
       transparentBackground,
+      textureAnisotropy: Math.min(4, this.renderer.capabilities.getMaxAnisotropy()),
+      onReady: () => this.updateSeats(),
     });
     this.chairMaterials = tableEnvironment.chairMaterials;
     this.chairs = tableEnvironment.chairs;
+    this.disposeEnvironment = tableEnvironment.dispose;
+    this.updateEnvironment = tableEnvironment.update;
     this.scene.add(this.cardRoot, this.seatRoot);
 
     canvas.addEventListener("pointerdown", (event) => {
@@ -311,6 +167,7 @@ export class TableSceneEngine {
       const delta = Math.min((time - this.lastFrameTime) / 1000, 0.05);
       this.lastFrameTime = time;
       this.controls.update();
+      this.updateEnvironment(this.camera.position);
       this.cards.forEach((card) => card.tick(delta, this.reducedMotion));
       this.retiredCards.forEach((card) => {
         card.tick(delta, this.reducedMotion);
@@ -359,7 +216,22 @@ export class TableSceneEngine {
         ),
       ),
     );
-    this.renderer.shadowMap.enabled = !mobile;
+    if (this.renderer.shadowMap.enabled === mobile) {
+      this.renderer.shadowMap.enabled = !mobile;
+      // Recompile shadow shader variants when crossing the mobile breakpoint.
+      // Otherwise existing materials can retain a stale desktop shadow map.
+      const materials = new Set<Material>();
+      this.scene.traverse((object) => {
+        if (!(object instanceof Mesh)) return;
+        const meshMaterials = Array.isArray(object.material)
+          ? object.material
+          : [object.material];
+        meshMaterials.forEach((material) => materials.add(material));
+      });
+      materials.forEach((material) => {
+        material.needsUpdate = true;
+      });
+    }
     this.camera.aspect = this.width / this.height;
     this.camera.fov =
       this.camera.aspect < 0.82
@@ -371,12 +243,17 @@ export class TableSceneEngine {
 
   resetCamera() {
     const portrait = this.width / this.height < 0.82;
-    this.camera.position.copy(
-      portrait
-        ? CAMERA_PRESETS.portrait.position
-        : CAMERA_PRESETS.landscape.position,
+    const preset = this.transparentBackground
+      ? CAMERA_PRESETS.menu
+      : portrait
+        ? CAMERA_PRESETS.portrait
+        : CAMERA_PRESETS.landscape;
+    this.camera.position.copy(preset.position);
+    this.controls.target.copy(
+      this.transparentBackground
+        ? CAMERA_PRESETS.menu.target
+        : CAMERA_PRESETS.target,
     );
-    this.controls.target.copy(CAMERA_PRESETS.target);
     this.controls.update();
   }
 
@@ -418,7 +295,7 @@ export class TableSceneEngine {
       let card = this.cards.get(specification.id);
       if (!card) {
         const faceTexture = specification.card
-          ? this.textureFactory.getFace(specification.card)
+          ? this.textureFactory.acquireFace(specification.card)
           : undefined;
         card = new SceneCard({
           backTexture: this.textureFactory.back,
@@ -477,14 +354,7 @@ export class TableSceneEngine {
     this.cards.forEach((card) => card.destroy());
     this.retiredCards.forEach((card) => card.destroy());
     this.textureFactory.dispose();
-    this.scene.traverse((object) => {
-      if (!(object instanceof Mesh)) return;
-      object.geometry.dispose();
-      const materials = Array.isArray(object.material)
-        ? object.material
-        : [object.material];
-      materials.forEach((material) => material.dispose());
-    });
+    this.disposeEnvironment();
     this.renderer.dispose();
   }
 }

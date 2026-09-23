@@ -15,11 +15,11 @@ export function HomeScreen({
       <div className="flex items-center gap-[clamp(0.875rem,1.2vw,1.5rem)]">
         <span
           aria-hidden="true"
-          className="grid size-[clamp(3.25rem,4vw,5.5rem)] shrink-0 place-items-center rounded-xl border border-[#edd493]/60 bg-gradient-to-b from-[#f3dfa7] via-primary to-[#caa353] font-heading text-[clamp(1.5rem,2vw,2.5rem)] font-bold text-primary-foreground shadow-[0_4px_16px_rgba(229,197,122,0.25),inset_0_1px_1px_rgba(255,255,255,0.4)]"
+          className="home-brand-mark grid size-[clamp(3.25rem,4vw,5.5rem)] shrink-0 place-items-center rounded-xl font-heading text-[clamp(1.5rem,2vw,2.5rem)] font-bold"
         >
           ش
         </span>
-        <h1 className="m-0 font-heading text-[clamp(2.25rem,3.2vw,4.5rem)] font-semibold leading-none tracking-tight text-foreground drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
+        <h1 className="m-0 font-heading text-[clamp(2.25rem,3.2vw,4.5rem)] font-semibold leading-none tracking-tight text-foreground">
           PlayRook
         </h1>
       </div>

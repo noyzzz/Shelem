@@ -15,6 +15,10 @@ export const SEAT_ANCHORS: Record<RelativePosition, Vector3> = {
   east: new Vector3(6.05, 1.82, 0),
 };
 export const CAMERA_PRESETS = {
+  menu: {
+    position: new Vector3(0, 10.8, 15.6),
+    target: new Vector3(0, -0.6, 0),
+  },
   landscape: {
     fov: 47,
     position: new Vector3(0, 7.2, 10.4),

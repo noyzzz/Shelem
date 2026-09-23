@@ -20,9 +20,9 @@ const buttonVariants = cva(
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
         menu:
-          "border border-[#edd493]/70 bg-gradient-to-r from-[#f3dfa7] via-primary to-[#d8b35e] text-primary-foreground font-semibold shadow-[0_4px_18px_rgba(229,197,122,0.2),inset_0_1px_0_rgba(255,255,255,0.3)] hover:brightness-105 active:scale-[0.99]",
+          "border-primary bg-primary text-primary-foreground font-semibold shadow-sm hover:bg-primary/90 active:scale-[0.99]",
         "menu-outline":
-          "border border-white/12 bg-[#091e17]/85 text-card-foreground font-semibold shadow-[0_4px_16px_rgba(0,0,0,0.4)] backdrop-blur-md hover:border-primary/45 hover:bg-[#0c261e]/95 hover:text-foreground hover:shadow-[0_4px_22px_rgba(0,0,0,0.5),0_0_14px_rgba(229,197,122,0.1)] active:scale-[0.99]",
+          "border-border bg-secondary text-foreground font-semibold shadow-sm hover:border-primary/50 hover:bg-background active:scale-[0.99]",
       },
       size: {
         default:

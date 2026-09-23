@@ -37,10 +37,10 @@ export function MobileHand({
             aria-label={`${card.rank} of ${card.suit}`}
             aria-pressed={selected}
             className={cn(
-              "absolute top-3 aspect-[5/7] w-[clamp(58px,18vw,76px)] overflow-hidden rounded-md border border-black/25 bg-[#fff0c2] shadow-[0_5px_14px_rgba(0,0,0,0.5)] transition-[top,filter] duration-150 pointer-events-auto",
+              "absolute top-3 aspect-[5/7] w-[clamp(58px,18vw,76px)] overflow-hidden rounded-md border border-black/25 bg-[#fff0c2] shadow-[0_5px_14px_rgba(0,0,0,0.5)] transition-[filter,border-color,box-shadow] duration-150 pointer-events-auto",
               enabled && !interactionBlocked && "active:brightness-110",
               selected &&
-                "top-0 border-2 border-primary shadow-[0_0_18px_rgba(229,197,122,0.65)]",
+                "border-primary ring-2 ring-inset ring-primary",
             )}
             disabled={disabled}
             key={card.id}
@@ -48,7 +48,7 @@ export function MobileHand({
             style={{
               left: `${progress * 100}%`,
               transform: `translateX(-${progress * 100}%)`,
-              zIndex: selected ? cards.length + 1 : index,
+              zIndex: index,
             }}
             type="button"
           >

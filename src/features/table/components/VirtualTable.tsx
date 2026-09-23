@@ -25,6 +25,7 @@ export function VirtualTable({
   >({});
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const isMobileViewport = useMediaQuery("(max-width: 639px)");
+  const dockSouthSeat = model.phase !== "lobby" && model.viewerTeam !== undefined;
   const sceneModel = useMemo(
     () => (isMobileViewport ? { ...model, hand: [] } : model),
     [isMobileViewport, model],
@@ -38,6 +39,7 @@ export function VirtualTable({
     onSeatProjection: (position, projection) =>
       applySeatProjection(seatElements.current[position], projection, {
         clearHand: position === "south",
+        dockToBottom: dockSouthSeat && position === "south",
         stackByDepth: true,
       }),
   });
@@ -45,10 +47,10 @@ export function VirtualTable({
   return (
     <section
       aria-label="Three-dimensional card table"
-      className="relative h-full w-full overflow-hidden select-none"
+      className="relative h-full w-full overflow-clip select-none"
     >
       <div
-        className="relative h-full w-full overflow-hidden bg-background"
+        className="relative h-full w-full overflow-clip bg-background"
         ref={hostRef}
       >
         <canvas
@@ -57,6 +59,7 @@ export function VirtualTable({
           ref={canvasRef}
         />
         <SeatVideoLayer
+          dockSouthSeat={dockSouthSeat}
           hideSouthSeat={isMobileViewport && model.hand.length > 0}
           model={model}
           onSeatElement={(position, element) => {

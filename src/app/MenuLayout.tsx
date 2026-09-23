@@ -1,7 +1,7 @@
 import { Logo } from "@/components/Logo";
 import { MenuTableScene } from "@/features/table/components/MenuTableScene";
-import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { HomeRoomBackdrop } from "./HomeRoomBackdrop";
 
 export function MenuLayout({
   home,
@@ -15,16 +15,8 @@ export function MenuLayout({
   children: ReactNode;
 }) {
   return (
-    <main className="menu-screen relative min-h-[100svh] overflow-hidden bg-background">
-      {!home && (
-        <>
-          <MenuTableScene playerName={playerName} />
-          <div
-            aria-hidden="true"
-            className="menu-scene-scrim absolute inset-0"
-          />
-        </>
-      )}
+    <main className="menu-screen menu-theme relative min-h-[100svh] overflow-hidden bg-background">
+      <HomeRoomBackdrop />
       {home ? (
         <div className="absolute top-3 right-3 z-30 sm:top-5 sm:right-6">
           {account}
@@ -35,20 +27,11 @@ export function MenuLayout({
           {account}
         </nav>
       )}
-      <div
-        className={cn(
-          "relative z-10",
-          home
-            ? "home-layout"
-            : "mx-auto flex min-h-[100svh] w-full max-w-[1536px] items-center justify-center px-5 pt-24 pb-7 sm:px-8 sm:pb-10 lg:px-12",
-        )}
-      >
-        {children}
-        {home && (
-          <div className="home-table">
-            <MenuTableScene playerName={playerName} />
-          </div>
-        )}
+      <div className="home-layout relative z-10">
+        <div className="home-menu">{children}</div>
+        <div className="home-table">
+          <MenuTableScene playerName={playerName} />
+        </div>
       </div>
     </main>
   );

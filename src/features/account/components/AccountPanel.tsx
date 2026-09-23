@@ -50,11 +50,9 @@ export function AccountPanel({
         className={cn(
           buttonVariants({
             size: "sm",
-            variant: blend ? "ghost" : "outline",
+            variant: blend ? "menu-outline" : "outline",
           }),
           !blend && "bg-card/80 backdrop-blur-md",
-          blend &&
-            "border border-white/12 bg-black/40 text-foreground/90 shadow-sm backdrop-blur-md hover:border-primary/40 hover:bg-black/60 hover:text-foreground hover:shadow-[0_0_12px_rgba(229,197,122,0.1)]",
           "cursor-pointer transition-all",
         )}
       >
@@ -63,7 +61,7 @@ export function AccountPanel({
 
       <PopoverContent
         align="end"
-        className="w-[min(320px,calc(100vw-40px))] p-4 shadow-2xl bg-card border-border backdrop-blur-md"
+        className={cn("w-[min(320px,calc(100vw-40px))] p-4 shadow-2xl bg-card border-border backdrop-blur-md", blend && "menu-theme")}
         sideOffset={10}
       >
         <PopoverHeader className="flex flex-row items-center justify-between pb-2 mb-2 border-b border-border/50">
