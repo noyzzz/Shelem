@@ -24,7 +24,9 @@ export function VirtualTable({
     Partial<Record<RelativePosition, HTMLDivElement>>
   >({});
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const isMobileViewport = useMediaQuery("(max-width: 639px)");
+  const isMobileViewport = useMediaQuery(
+    "(max-width: 639px), (max-height: 500px) and (orientation: landscape)",
+  );
   const dockSouthSeat = model.phase !== "lobby" && model.viewerTeam !== undefined;
   const sceneModel = useMemo(
     () => (isMobileViewport ? { ...model, hand: [] } : model),
@@ -77,7 +79,7 @@ export function VirtualTable({
             phase={model.phase}
           />
         )}
-        <ButtonGroup
+        {!isMobileViewport && <ButtonGroup
           className="absolute right-3.5 bottom-3.5 z-30 shadow-[0_4px_16px_rgba(0,0,0,0.4)] backdrop-blur-md rounded-lg border border-white/10 bg-[#081b15]/90 p-0.5"
           aria-label="Table camera controls"
         >
@@ -110,10 +112,12 @@ export function VirtualTable({
           >
             ↷
           </Button>
-        </ButtonGroup>
-        <span className="hidden sm:block absolute bottom-4 left-4 z-20 text-[11px] font-medium tracking-wide text-muted-foreground/70 pointer-events-none">
-          Drag to rotate · Pinch or scroll to zoom
-        </span>
+        </ButtonGroup>}
+        {!isMobileViewport && (
+          <span className="hidden sm:block absolute bottom-4 left-4 z-20 text-[11px] font-medium tracking-wide text-muted-foreground/70 pointer-events-none">
+            Drag to rotate · Pinch or scroll to zoom
+          </span>
+        )}
       </div>
       <TableAccessibility
         model={model}

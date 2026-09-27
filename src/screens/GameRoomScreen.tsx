@@ -79,6 +79,7 @@ export function GameRoomScreen({
     ...tableStatus,
     interactionBlocked:
       display.hudPanel !== null ||
+      actions.groundPending ||
       model.phase === "hand-results" ||
       model.phase === "match-complete",
     onCardAction:
@@ -181,6 +182,7 @@ export function GameRoomScreen({
             onRemoveCard={actions.toggleDiscard}
             onSubmit={actions.completeGround}
             selectedCards={actions.selectedDiscardCards}
+            submitting={actions.groundPending}
           />
         )}
         {model.phase === "hand-results" && (

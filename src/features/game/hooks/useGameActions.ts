@@ -11,6 +11,7 @@ export function useGameActions(room: Room, playerId: string) {
     null,
   );
   const [playPending, setPlayPending] = useState(false);
+  const [groundPending, setGroundPending] = useState(false);
   const [seatChangePending, setSeatChangePending] = useState<Position | null>(
     null,
   );
@@ -137,6 +138,7 @@ export function useGameActions(room: Room, playerId: string) {
   };
 
   const toggleDiscard = (cardId: string) => {
+    if (groundPending) return;
     setSelectedDiscardIds((selected) =>
       selected.includes(cardId)
         ? selected.filter((id) => id !== cardId)
@@ -148,6 +150,8 @@ export function useGameActions(room: Room, playerId: string) {
   };
 
   const completeGround = async () => {
+    if (groundPending || room.match?.phase !== "ground") return;
+    setGroundPending(true);
     try {
       await gameClient.completeGround(selectedDiscardIds);
       setSelectedDiscardIds([]);
@@ -158,6 +162,8 @@ export function useGameActions(room: Room, playerId: string) {
           ? error.message
           : "Unable to complete the ground phase.",
       );
+    } finally {
+      setGroundPending(false);
     }
   };
 
@@ -205,6 +211,7 @@ export function useGameActions(room: Room, playerId: string) {
     setBidAmount,
     selectedDiscardIds,
     selectedPlayCardId,
+    groundPending,
     seatChangePending,
     ready,
     currentPlayer,
