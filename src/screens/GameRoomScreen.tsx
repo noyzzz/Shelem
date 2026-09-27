@@ -114,9 +114,11 @@ export function GameRoomScreen({
         onLeave={onLeave}
         onPanelChange={display.setHudPanel}
         onToggleFullscreen={display.toggleFullscreen}
+        onToggleTableMode={() => setVirtualTableEnabled((enabled) => !enabled)}
         openPanel={display.hudPanel}
         playerName={actions.currentPlayer?.name ?? playerName}
         roomCode={room.code}
+        virtualTableEnabled={virtualTableEnabled}
         media={
           <Suspense
             fallback={
@@ -204,6 +206,8 @@ export function GameRoomScreen({
           ready={actions.ready}
           onToggleBots={actions.toggleBots}
           onToggleReady={actions.toggleReady}
+          onTrickDisplayMsChange={actions.updateTrickDisplayMs}
+          trickDisplayMs={room.settings.trickDisplayMs}
         />
       </section>
     </main>

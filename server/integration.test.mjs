@@ -197,6 +197,23 @@ test("creates, validates, synchronizes, and cleans up rooms", async () => {
   );
   assert.equal((await hostSawJoin).room.players.length, 2);
 
+  const rejectedSettings = await command(guest, {
+    type: "update-room-settings",
+    playerId: "guest",
+    trickDisplayMs: 3_000,
+  });
+  assert.equal(rejectedSettings.type, "error");
+  assert.equal(rejectedSettings.code, "host-only");
+
+  const guestSawSettings = nextMessage(guest);
+  const updatedSettings = await command(host, {
+    type: "update-room-settings",
+    playerId: "host",
+    trickDisplayMs: 3_000,
+  });
+  assert.equal(updatedSettings.room.settings.trickDisplayMs, 3_000);
+  assert.equal((await guestSawSettings).room.settings.trickDisplayMs, 3_000);
+
   const reconnectingGuest = await connect();
   const hostSawReconnect = nextMessage(host);
   const rejoined = await command(reconnectingGuest, {

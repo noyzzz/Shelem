@@ -91,6 +91,9 @@ export type Match = {
 export type Room = {
   code: string;
   hostPlayerId: string;
+  settings: {
+    trickDisplayMs: number;
+  };
   players: Player[];
   score: Record<Team, number>;
   matchWinnerTeam: Team | null;

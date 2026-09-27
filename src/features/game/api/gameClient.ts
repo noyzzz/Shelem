@@ -232,6 +232,10 @@ class GameClient {
     return this.request({ type: "change-seat", position });
   }
 
+  updateRoomSettings(trickDisplayMs: number) {
+    return this.request({ type: "update-room-settings", trickDisplayMs });
+  }
+
   fillWithBots() {
     return this.request({ type: "fill-with-bots" });
   }

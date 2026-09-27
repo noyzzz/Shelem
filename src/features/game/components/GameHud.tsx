@@ -29,10 +29,12 @@ type GameHudProps = {
   onLeave: () => void;
   onPanelChange: (panel: HudPanel) => void;
   onToggleFullscreen: () => void;
+  onToggleTableMode: () => void;
   openPanel: HudPanel;
   playerName: string;
   media: ReactNode;
   roomCode: string;
+  virtualTableEnabled: boolean;
 };
 
 export function GameHud({
@@ -42,10 +44,12 @@ export function GameHud({
   onLeave,
   onPanelChange,
   onToggleFullscreen,
+  onToggleTableMode,
   openPanel,
   playerName,
   media,
   roomCode,
+  virtualTableEnabled,
 }: GameHudProps) {
   return (
     <header className="absolute top-0 left-0 z-40 flex min-h-14 w-full items-center justify-between px-4 py-3 sm:px-6 pointer-events-none">
@@ -129,6 +133,9 @@ export function GameHud({
                   {isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={onToggleTableMode}>
+                {virtualTableEnabled ? "Use 2D table" : "Use 3D table"}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onLeave} variant="destructive">
                 Leave table

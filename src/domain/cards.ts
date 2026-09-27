@@ -1,6 +1,7 @@
 import type { Card, Room } from "./types";
 
-const suitOrder: Card["suit"][] = ["clubs", "diamonds", "spades", "hearts"];
+const blackSuits: Card["suit"][] = ["clubs", "spades"];
+const redSuits: Card["suit"][] = ["diamonds", "hearts"];
 const rankOrder: Card["rank"][] = [
   "A",
   "K",
@@ -25,6 +26,20 @@ export const SUIT_SYMBOL: Record<Card["suit"], string> = {
 };
 
 export function sortCards(cards: Card[]) {
+  const presentSuits = new Set(cards.map((card) => card.suit));
+  const black = blackSuits.filter((suit) => presentSuits.has(suit));
+  const red = redSuits.filter((suit) => presentSuits.has(suit));
+  const suitOrder: Card["suit"][] = [];
+  let nextColor = black.length >= red.length ? "black" : "red";
+
+  while (black.length > 0 || red.length > 0) {
+    const preferred = nextColor === "black" ? black : red;
+    const alternate = nextColor === "black" ? red : black;
+    const suit = preferred.shift() ?? alternate.shift();
+    if (suit) suitOrder.push(suit);
+    nextColor = nextColor === "black" ? "red" : "black";
+  }
+
   return [...cards].sort(
     (left, right) =>
       suitOrder.indexOf(left.suit) - suitOrder.indexOf(right.suit) ||

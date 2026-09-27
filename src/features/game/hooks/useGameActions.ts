@@ -167,6 +167,19 @@ export function useGameActions(room: Room, playerId: string) {
     }
   };
 
+  const updateTrickDisplayMs = async (trickDisplayMs: number) => {
+    try {
+      await gameClient.updateRoomSettings(trickDisplayMs);
+      setActionError("");
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Unable to update the played-card pause.",
+      );
+    }
+  };
+
   const selectOrPlayCard = async (cardId: string) => {
     if (playPending) return;
     if (selectedPlayCardId !== cardId) {
@@ -222,6 +235,7 @@ export function useGameActions(room: Room, playerId: string) {
     toggleReady,
     changeSeat,
     toggleBots,
+    updateTrickDisplayMs,
     placeBid,
     passBid,
     toggleDiscard,

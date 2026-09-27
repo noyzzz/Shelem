@@ -23,7 +23,7 @@ const port = Number(process.env.PORT ?? 3001);
 const reconnectGraceMs = Number(process.env.RECONNECT_GRACE_MS ?? 60_000);
 const botActionDelayMs = Number(process.env.BOT_ACTION_DELAY_MS ?? 350);
 const groundRevealMs = Number(process.env.GROUND_REVEAL_MS ?? 6_000);
-const trickDisplayMs = Number(process.env.TRICK_DISPLAY_MS ?? 5_000);
+const defaultTrickDisplayMs = Number(process.env.TRICK_DISPLAY_MS ?? 5_000);
 const trickAckWaitMs = Number(process.env.TRICK_ACK_WAIT_MS ?? 1_500);
 const isProduction = process.env.NODE_ENV === "production";
 const livekitApiKey =
@@ -291,6 +291,7 @@ const createRoomCode = () => {
 const serializeRoom = (room, viewerId) => ({
   code: room.code,
   hostPlayerId: room.hostPlayerId,
+  settings: room.settings,
   score: room.score,
   matchWinnerTeam: room.matchWinnerTeam,
   players: [...room.players.values()].map(
@@ -599,6 +600,7 @@ const startTrickReviewTimer = (room, play, winnerId, reviewId) => {
   }
 
   clearTimeout(room.trickAckTimer);
+  const trickDisplayMs = room.settings.trickDisplayMs;
   play.trickReviewEndsAt = Date.now() + trickDisplayMs;
   room.trickDisplayTimer = setTimeout(() => {
     if (
@@ -924,6 +926,7 @@ webSocketServer.on("connection", (socket) => {
         code,
         hostPlayerId: playerId,
         players: new Map(),
+        settings: { trickDisplayMs: defaultTrickDisplayMs },
         score: { one: 0, two: 0 },
         matchWinnerTeam: null,
       };
@@ -1055,6 +1058,40 @@ webSocketServer.on("connection", (socket) => {
       }
 
       player.position = message.position;
+      broadcastRoom(room, requestId, socket);
+      return;
+    }
+
+    if (message.type === "update-room-settings") {
+      if (room.hostPlayerId !== playerId) {
+        sendError(
+          socket,
+          requestId,
+          "host-only",
+          "Only the room host can change game settings.",
+        );
+        return;
+      }
+      if (room.match) {
+        sendError(
+          socket,
+          requestId,
+          "match-started",
+          "Game settings can only be changed before the match starts.",
+        );
+        return;
+      }
+      if (![2_000, 3_000, 5_000, 7_000].includes(message.trickDisplayMs)) {
+        sendError(
+          socket,
+          requestId,
+          "invalid-settings",
+          "Choose a played-card pause of 2, 3, 5, or 7 seconds.",
+        );
+        return;
+      }
+
+      room.settings.trickDisplayMs = message.trickDisplayMs;
       broadcastRoom(room, requestId, socket);
       return;
     }
