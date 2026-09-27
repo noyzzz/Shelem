@@ -40,7 +40,7 @@ export function TableTrick({ model }: { model: TableViewModel }) {
             {played ? (
               <article
                 aria-label={`${played.card.rank} of ${played.card.suit}`}
-                className="aspect-[5/7] w-14 overflow-hidden rounded-md border border-border shadow-md"
+                className="aspect-[5/7] w-24 overflow-hidden rounded-md border border-border shadow-md"
               >
                 <CardFace
                   card={played.card}

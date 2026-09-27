@@ -7,6 +7,7 @@ import type { ConnectionStatus } from "@/features/game/api/gameClient";
 import { GameHud } from "@/features/game/components/GameHud";
 import { LobbyControls } from "@/features/game/components/LobbyControls";
 import { MatchScoreboard } from "@/features/game/components/MatchScoreboard";
+import { PortraitOrientationPrompt } from "@/features/game/components/PortraitOrientationPrompt";
 import { BiddingPanel } from "@/features/game/components/panels/BiddingPanel";
 import { ForfeitPanel } from "@/features/game/components/panels/ForfeitPanel";
 import { GroundPanel } from "@/features/game/components/panels/GroundPanel";
@@ -104,6 +105,7 @@ export function GameRoomScreen({
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_65%_at_50%_42%,rgba(16,72,52,0.35),transparent_75%),radial-gradient(ellipse_95%_95%_at_50%_50%,transparent_45%,rgba(3,10,7,0.85)_100%)]"
       />
+      <PortraitOrientationPrompt />
       <GameHud
         fullscreenEnabled={document.fullscreenEnabled}
         isFullscreen={display.isFullscreen}

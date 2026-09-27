@@ -106,8 +106,8 @@ function layoutGround(model: TableViewModel): DesiredCard[] {
 
 function layoutCurrentTrick(model: TableViewModel): DesiredCard[] {
   const positions = {
-    north: new Vector3(0, TABLE_SURFACE_Y + 0.12, -0.78),
-    south: new Vector3(0, TABLE_SURFACE_Y + 0.15, 0.78),
+    north: new Vector3(0, TABLE_SURFACE_Y + 0.12, -0.9),
+    south: new Vector3(0, TABLE_SURFACE_Y + 0.15, 0.9),
     west: new Vector3(-1.05, TABLE_SURFACE_Y + 0.18, 0),
     east: new Vector3(1.05, TABLE_SURFACE_Y + 0.21, 0),
   };
@@ -135,7 +135,7 @@ function layoutCurrentTrick(model: TableViewModel): DesiredCard[] {
           ),
         ),
       ),
-      scale: 0.92,
+      scale: 1.3,
     },
   }));
 }

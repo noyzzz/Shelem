@@ -114,7 +114,22 @@ $env:DATABASE_URL = "postgres://shelem:shelem@localhost:5433/shelem"
 $env:LIVEKIT_API_KEY = "devkey"
 $env:LIVEKIT_API_SECRET = "secret"
 $env:LIVEKIT_KEYS = "devkey: secret"
-$env:LIVEKIT_URL = "ws://localhost:7880"
+$lanIp = $env:LIVEKIT_NODE_IP
+if (-not $lanIp) {
+  $defaultRoute = Get-NetRoute -DestinationPrefix "0.0.0.0/0" |
+    Sort-Object RouteMetric, InterfaceMetric |
+    Select-Object -First 1
+  if ($defaultRoute) {
+    $lanIp = Get-NetIPAddress -InterfaceIndex $defaultRoute.InterfaceIndex -AddressFamily IPv4 |
+      Where-Object { $_.AddressState -eq "Preferred" } |
+      Select-Object -ExpandProperty IPAddress -First 1
+  }
+}
+if (-not $lanIp) {
+  $lanIp = "127.0.0.1"
+}
+$env:LIVEKIT_NODE_IP = $lanIp
+$env:LIVEKIT_URL = "ws://${lanIp}:7880"
 
 Write-Host "Preparing LiveKit..."
 & $liveKitScriptPath -InstallOnly
@@ -128,6 +143,7 @@ if (-not (Test-Path -LiteralPath $concurrentlyPath)) {
 
 Write-Host "Starting LiveKit, the game server, and the web app..."
 Write-Host "The web address will appear after all required services are ready."
+Write-Host "Phones on this network can use http://${lanIp}:5173"
 & $concurrentlyPath --kill-others --names "media,game,web" `
   "npm run media" `
   "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Service game" `
