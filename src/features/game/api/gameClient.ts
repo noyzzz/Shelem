@@ -1,104 +1,6 @@
-export type Position = "north" | "south" | "east" | "west";
-export type Team = "one" | "two";
+import type { Position, Room } from "@/domain/types";
 
-export type Player = {
-  id: string;
-  name: string;
-  position: Position;
-  ready: boolean;
-  connected: boolean;
-  isBot: boolean;
-};
-
-export type Card = {
-  id: string;
-  suit: "clubs" | "diamonds" | "hearts" | "spades";
-  rank:
-    | "A"
-    | "K"
-    | "Q"
-    | "J"
-    | "10"
-    | "9"
-    | "8"
-    | "7"
-    | "6"
-    | "5"
-    | "4"
-    | "3"
-    | "2";
-};
-
-export type Match = {
-  phase:
-    | "bidding"
-    | "ground-reveal"
-    | "ground"
-    | "playing"
-    | "hand-results"
-    | "match-complete";
-  handNumber: number;
-  dealerPosition: Position;
-  firstBidderPosition: Position;
-  groundCount: number;
-  groundCards: Card[];
-  discardCount: number;
-  trump: Card["suit"] | null;
-  nextHandReadyPlayerIds: string[];
-  handCounts: Record<string, number>;
-  yourHand: Card[];
-  bidding: {
-    currentBid: number | null;
-    highBidderId: string | null;
-    currentTurnPlayerId: string | null;
-    passedPlayerIds: string[];
-    history: Array<
-      | { playerId: string; amount: number }
-      | { playerId: string; pass: true }
-    >;
-    winningBid: number | null;
-    winnerId: string | null;
-  };
-  play: {
-    currentTurnPlayerId: string | null;
-    currentTrick: Array<{ playerId: string; card: Card }>;
-    completedTrickCount: number;
-    lastTrickWinnerId: string | null;
-    resolvingTrickWinnerId: string | null;
-    trickReviewId: string | null;
-    trickReviewEndsAt: number | null;
-    trickWins: Record<string, number>;
-  } | null;
-  result?: {
-    bid: number;
-    biddingTeam: Team;
-    defendingTeam: Team;
-    rawPoints: Record<Team, number>;
-    scoreDelta: Record<Team, number>;
-    madeBid: boolean;
-    shelem: boolean;
-    matchScore: Record<Team, number>;
-    matchWinnerTeam: Team | null;
-  };
-  forfeit?: {
-    losingPlayerId: string;
-    losingPlayerName: string;
-    losingTeam: Team;
-    winningTeam: Team;
-    reason: "left" | "disconnected";
-  };
-};
-
-export type Room = {
-  code: string;
-  hostPlayerId: string;
-  players: Player[];
-  score: Record<Team, number>;
-  matchWinnerTeam: Team | null;
-  match?: Match;
-};
-
-type ConnectionStatus = "connecting" | "connected" | "disconnected";
+export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 type RoomListener = (room: Room | null) => void;
 type StatusListener = (status: ConnectionStatus) => void;
 
@@ -165,13 +67,33 @@ const removePersistentValue = (key: string) => {
   window.sessionStorage.removeItem(key);
 };
 
+const createClientId = () => {
+  if (typeof window.crypto?.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+
+  if (typeof window.crypto?.getRandomValues === "function") {
+    const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+    return [
+      hex.slice(0, 4).join(""),
+      hex.slice(4, 6).join(""),
+      hex.slice(6, 8).join(""),
+      hex.slice(8, 10).join(""),
+      hex.slice(10).join(""),
+    ].join("-");
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
 const getPlayerId = () => {
   const existing = readPersistentValue(PLAYER_ID_KEY);
   if (existing) return existing;
 
-  const created =
-    window.crypto.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const created = createClientId();
   writePersistentValue(PLAYER_ID_KEY, created);
   return created;
 };
@@ -190,7 +112,6 @@ const getRememberedRoom = () => {
 class GameClient {
   readonly playerId = getPlayerId();
   private socket: WebSocket | null = null;
-  private reconnectTimer: number | null = null;
   private manuallyStopped = false;
   private roomListeners = new Set<RoomListener>();
   private statusListeners = new Set<StatusListener>();
@@ -275,7 +196,7 @@ class GameClient {
       }
       this.mediaPending.clear();
       if (!this.manuallyStopped) {
-        this.reconnectTimer = window.setTimeout(() => this.connect(), 1_000);
+        window.setTimeout(() => this.connect(), 1_000);
       }
     });
   }
@@ -309,6 +230,10 @@ class GameClient {
 
   changeSeat(position: Position) {
     return this.request({ type: "change-seat", position });
+  }
+
+  updateRoomSettings(trickDisplayMs: number) {
+    return this.request({ type: "update-room-settings", trickDisplayMs });
   }
 
   fillWithBots() {
@@ -350,7 +275,7 @@ class GameClient {
         return;
       }
 
-      const requestId = window.crypto.randomUUID();
+      const requestId = createClientId();
       this.mediaPending.set(requestId, { resolve, reject });
       this.socket.send(
         JSON.stringify({
@@ -376,7 +301,7 @@ class GameClient {
         return;
       }
 
-      const requestId = window.crypto.randomUUID();
+      const requestId = createClientId();
       this.pending.set(requestId, { resolve, reject });
       this.socket.send(
         JSON.stringify({
